@@ -1,0 +1,433 @@
+// ============================================================
+// PRISMA SCHEMA — Plataforma SaaS de Gestión Turística
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// PLANES DE SUSCRIPCIÓN (tabla maestra — sin tenant)
+// ============================================================
+model PlanSuscripcion {
+  id              String   @id @default(uuid())
+  nombre          String   @unique // Básico, Profesional, Empresarial
+  descripcion     String?
+  precioMensual   Decimal  @db.Decimal(10, 2)
+  maxUsuarios     Int
+  maxReservasMes  Int?     // null = ilimitado
+  maxHoteles      Int?
+  caracteristicas Json?    // array de strings con features
+  activo          Boolean  @default(true)
+  creadoEn        DateTime @default(now())
+
+  suscripciones Suscripcion[]
+
+  @@map("planes_suscripcion")
+}
+
+// ============================================================
+// EMPRESAS (TENANTS)
+// ============================================================
+model Empresa {
+  id             String   @id @default(uuid())
+  nombre         String
+  slug           String   @unique // para subdominios: miempresa.saas.com
+  email          String   @unique
+  telefono       String?
+  direccion      String?
+  ciudad         String?
+  pais           String?
+  logoUrl        String?
+  sitioWeb       String?
+  activo         Boolean  @default(true)
+  creadoEn       DateTime @default(now())
+  actualizadoEn  DateTime @updatedAt
+
+  // Relaciones
+  usuarios        Usuario[]
+  roles           Rol[]
+  clientes        Cliente[]
+  hoteles         Hotel[]
+  paquetes        PaqueteTuristico[]
+  reservas        Reserva[]
+  pagos           Pago[]
+  empleados       Empleado[]
+  suscripciones   Suscripcion[]
+  facturas        Factura[]
+  notificaciones  Notificacion[]
+
+  @@map("empresas")
+}
+
+// ============================================================
+// ROLES
+// ============================================================
+model Rol {
+  id          String   @id @default(uuid())
+  empresaId   String
+  nombre      String   // admin, gerente, recepcionista, agente
+  descripcion String?
+  esSistema   Boolean  @default(false) // roles predeterminados
+  creadoEn    DateTime @default(now())
+
+  empresa  Empresa          @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  usuarios Usuario[]
+  permisos RolPermiso[]
+
+  @@unique([empresaId, nombre])
+  @@map("roles")
+}
+
+// ============================================================
+// PERMISOS
+// ============================================================
+model Permiso {
+  id          String @id @default(uuid())
+  modulo      String // clientes, reservas, hoteles, pagos, reportes...
+  accion      String // crear, leer, actualizar, eliminar, exportar
+  descripcion String?
+
+  roles RolPermiso[]
+
+  @@unique([modulo, accion])
+  @@map("permisos")
+}
+
+model RolPermiso {
+  rolId     String
+  permisoId String
+
+  rol     Rol     @relation(fields: [rolId], references: [id], onDelete: Cascade)
+  permiso Permiso @relation(fields: [permisoId], references: [id], onDelete: Cascade)
+
+  @@id([rolId, permisoId])
+  @@map("roles_permisos")
+}
+
+// ============================================================
+// USUARIOS
+// ============================================================
+model Usuario {
+  id             String    @id @default(uuid())
+  empresaId      String
+  rolId          String
+  nombre         String
+  email          String
+  passwordHash   String
+  avatarUrl      String?
+  activo         Boolean   @default(true)
+  ultimoLogin    DateTime?
+  creadoEn       DateTime  @default(now())
+  actualizadoEn  DateTime  @updatedAt
+
+  empresa       Empresa       @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  rol           Rol           @relation(fields: [rolId], references: [id])
+  refreshTokens RefreshToken[]
+  reservas      Reserva[]     // reservas que creó
+  empleado      Empleado?
+  notificaciones Notificacion[]
+
+  @@unique([empresaId, email])
+  @@index([empresaId])
+  @@map("usuarios")
+}
+
+// ============================================================
+// REFRESH TOKENS
+// ============================================================
+model RefreshToken {
+  id         String   @id @default(uuid())
+  usuarioId  String
+  tokenHash  String   @unique
+  expiraEn   DateTime
+  revocado   Boolean  @default(false)
+  userAgent  String?
+  ip         String?
+  creadoEn   DateTime @default(now())
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
+  @@map("refresh_tokens")
+}
+
+// ============================================================
+// CLIENTES
+// ============================================================
+model Cliente {
+  id              String    @id @default(uuid())
+  empresaId       String
+  nombre          String
+  apellido        String
+  email           String?
+  telefono        String?
+  documentoTipo   String?   // DNI, Pasaporte, RUC, Cédula
+  documentoNum    String?
+  fechaNacimiento DateTime? @db.Date
+  pais            String?
+  ciudad          String?
+  direccion       String?
+  notas           String?
+  activo          Boolean   @default(true)
+  creadoEn        DateTime  @default(now())
+  actualizadoEn   DateTime  @updatedAt
+
+  empresa  Empresa   @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  reservas Reserva[]
+  pagos    Pago[]
+
+  @@unique([empresaId, documentoTipo, documentoNum])
+  @@index([empresaId])
+  @@index([empresaId, email])
+  @@map("clientes")
+}
+
+// ============================================================
+// HOTELES
+// ============================================================
+model Hotel {
+  id            String   @id @default(uuid())
+  empresaId     String
+  nombre        String
+  descripcion   String?
+  estrellas     Int?     // 1-5
+  email         String?
+  telefono      String?
+  pais          String?
+  ciudad        String?
+  direccion     String?
+  latitud       Float?
+  longitud      Float?
+  imagenUrl     String?
+  activo        Boolean  @default(true)
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  empresa      Empresa      @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  habitaciones Habitacion[]
+
+  @@index([empresaId])
+  @@map("hoteles")
+}
+
+// ============================================================
+// HABITACIONES
+// ============================================================
+model Habitacion {
+  id           String   @id @default(uuid())
+  hotelId      String
+  empresaId    String
+  numero       String
+  tipo         String   // simple, doble, suite, familiar, presidencial
+  capacidad    Int
+  precioNoche  Decimal  @db.Decimal(10, 2)
+  descripcion  String?
+  amenidades   Json?    // ["WiFi", "TV", "AC", "Jacuzzi", "Minibar"]
+  estado       String   @default("disponible") // disponible, ocupada, mantenimiento
+  imagenUrl    String?
+  activo       Boolean  @default(true)
+  creadoEn     DateTime @default(now())
+
+  hotel    Hotel     @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  reservas Reserva[]
+
+  @@unique([hotelId, numero])
+  @@index([hotelId])
+  @@index([empresaId, estado])
+  @@map("habitaciones")
+}
+
+// ============================================================
+// PAQUETES TURÍSTICOS
+// ============================================================
+model PaqueteTuristico {
+  id             String   @id @default(uuid())
+  empresaId      String
+  nombre         String
+  descripcion    String?
+  duracionDias   Int
+  precio         Decimal  @db.Decimal(10, 2)
+  precioIncluye  String?
+  itinerario     Json?    // array de días con actividades
+  maxPersonas    Int?
+  destinosPaises String[] // array de países
+  imagenUrl      String?
+  activo         Boolean  @default(true)
+  creadoEn       DateTime @default(now())
+  actualizadoEn  DateTime @updatedAt
+
+  empresa  Empresa   @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  reservas Reserva[]
+
+  @@index([empresaId])
+  @@map("paquetes_turisticos")
+}
+
+// ============================================================
+// RESERVAS
+// ============================================================
+model Reserva {
+  id            String    @id @default(uuid())
+  empresaId     String
+  clienteId     String
+  habitacionId  String?
+  paqueteId     String?
+  usuarioId     String?   // agente que registró la reserva
+  tipo          String    // hotel, paquete
+  fechaInicio   DateTime  @db.Date
+  fechaFin      DateTime  @db.Date
+  numPersonas   Int       @default(1)
+  precioTotal   Decimal   @db.Decimal(10, 2)
+  estado        String    @default("pendiente") // pendiente, confirmada, cancelada, completada
+  notas         String?
+  codigoRef     String?   @unique // código visible para el cliente
+  creadoEn      DateTime  @default(now())
+  actualizadoEn DateTime  @updatedAt
+
+  empresa    Empresa           @relation(fields: [empresaId], references: [id])
+  cliente    Cliente           @relation(fields: [clienteId], references: [id])
+  habitacion Habitacion?       @relation(fields: [habitacionId], references: [id])
+  paquete    PaqueteTuristico? @relation(fields: [paqueteId], references: [id])
+  usuario    Usuario?          @relation(fields: [usuarioId], references: [id])
+  pagos      Pago[]
+  facturas   Factura[]
+
+  @@index([empresaId])
+  @@index([clienteId])
+  @@index([empresaId, estado])
+  @@index([empresaId, fechaInicio, fechaFin])
+  @@map("reservas")
+}
+
+// ============================================================
+// PAGOS
+// ============================================================
+model Pago {
+  id          String    @id @default(uuid())
+  empresaId   String
+  reservaId   String
+  clienteId   String
+  monto       Decimal   @db.Decimal(10, 2)
+  metodoPago  String?   // efectivo, tarjeta, transferencia, stripe, paypal
+  referencia  String?   // ID de transacción externo (Stripe charge ID)
+  estado      String    @default("pendiente") // pendiente, completado, fallido, reembolsado
+  moneda      String    @default("USD")
+  fechaPago   DateTime?
+  notas       String?
+  creadoEn    DateTime  @default(now())
+
+  empresa Empresa @relation(fields: [empresaId], references: [id])
+  reserva Reserva @relation(fields: [reservaId], references: [id])
+  cliente Cliente @relation(fields: [clienteId], references: [id])
+
+  @@index([empresaId])
+  @@index([reservaId])
+  @@map("pagos")
+}
+
+// ============================================================
+// EMPLEADOS
+// ============================================================
+model Empleado {
+  id            String    @id @default(uuid())
+  empresaId     String
+  usuarioId     String?   @unique
+  nombre        String
+  apellido      String
+  cargo         String?
+  departamento  String?
+  email         String?
+  telefono      String?
+  fechaIngreso  DateTime? @db.Date
+  salario       Decimal?  @db.Decimal(10, 2)
+  documentoNum  String?
+  activo        Boolean   @default(true)
+  creadoEn      DateTime  @default(now())
+  actualizadoEn DateTime  @updatedAt
+
+  empresa Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  usuario Usuario? @relation(fields: [usuarioId], references: [id])
+
+  @@index([empresaId])
+  @@map("empleados")
+}
+
+// ============================================================
+// SUSCRIPCIONES
+// ============================================================
+model Suscripcion {
+  id              String    @id @default(uuid())
+  empresaId       String
+  planId          String
+  estado          String    @default("activa") // activa, suspendida, cancelada, trial
+  fechaInicio     DateTime  @db.Date
+  fechaFin        DateTime? @db.Date
+  precioPagado    Decimal?  @db.Decimal(10, 2)
+  renovacionAuto  Boolean   @default(true)
+  stripeSubId     String?   // Stripe Subscription ID
+  creadoEn        DateTime  @default(now())
+  actualizadoEn   DateTime  @updatedAt
+
+  empresa  Empresa         @relation(fields: [empresaId], references: [id])
+  plan     PlanSuscripcion @relation(fields: [planId], references: [id])
+  facturas Factura[]
+
+  @@index([empresaId])
+  @@map("suscripciones")
+}
+
+// ============================================================
+// FACTURAS
+// ============================================================
+model Factura {
+  id               String    @id @default(uuid())
+  empresaId        String
+  suscripcionId    String?
+  reservaId        String?
+  numeroFactura    String    @unique
+  tipo             String    // suscripcion, servicio, reserva
+  subtotal         Decimal   @db.Decimal(10, 2)
+  impuesto         Decimal   @db.Decimal(10, 2) @default(0)
+  total            Decimal   @db.Decimal(10, 2)
+  estado           String    @default("pendiente") // pendiente, pagada, vencida, anulada
+  fechaEmision     DateTime  @db.Date
+  fechaVencimiento DateTime? @db.Date
+  pdfUrl           String?
+  notas            String?
+  creadoEn         DateTime  @default(now())
+
+  empresa      Empresa      @relation(fields: [empresaId], references: [id])
+  suscripcion  Suscripcion? @relation(fields: [suscripcionId], references: [id])
+  reserva      Reserva?     @relation(fields: [reservaId], references: [id])
+
+  @@index([empresaId])
+  @@map("facturas")
+}
+
+// ============================================================
+// NOTIFICACIONES
+// ============================================================
+model Notificacion {
+  id         String   @id @default(uuid())
+  empresaId  String
+  usuarioId  String?
+  titulo     String
+  mensaje    String
+  tipo       String   // reserva, pago, sistema, alerta, suscripcion
+  leida      Boolean  @default(false)
+  url        String?  // deep link
+  creadoEn   DateTime @default(now())
+
+  empresa Empresa  @relation(fields: [empresaId], references: [id])
+  usuario Usuario? @relation(fields: [usuarioId], references: [id])
+
+  @@index([usuarioId, leida])
+  @@index([empresaId])
+  @@map("notificaciones")
+}
