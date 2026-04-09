@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+
+{% block title %}Ventas | TurismoERP{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h3 class="fw-bold mb-1">Registro de Ventas</h3>
+        <p class="text-muted">Gestione sus ingresos y comprobantes electrónicos</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="/ventas/exportar/" class="btn btn-light-success d-flex align-items-center gap-2">
+            <i data-lucide="download" style="width: 18px;"></i> Exportar Excel
+        </a>
+        <button class="btn btn-primary d-flex align-items-center gap-2">
+            <i data-lucide="plus-circle" style="width: 18px;"></i> Nueva Venta
+        </button>
+    </div>
+</div>
+
+<div class="card p-4">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Fecha</th>
+                    <th>Comprobante</th>
+                    <th>Cliente</th>
+                    <th>Total</th>
+                    <th>Pago</th>
+                    <th>Estado SUNAT</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for venta in ventas %}
+                <tr>
+                    <td>{{ venta.fecha|date:"d/m/Y H:i" }}</td>
+                    <td>
+                        <span class="fw-bold">{{ venta.get_tipo_comprobante_display }}</span><br>
+                        <small class="text-muted">{{ venta.serie }}-{{ venta.numero }}</small>
+                    </td>
+                    <td>{{ venta.cliente.nombre_razon_social }}</td>
+                    <td class="fw-bold text-dark">S/ {{ venta.total }}</td>
+                    <td>
+                        <span class="badge {% if venta.forma_pago == 'CONTADO' %}bg-light-success text-success{% else %}bg-light-warning text-warning{% endif %}">
+                            {{ venta.forma_pago }}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="badge {% if venta.estado_sunat == 'ACEPTADO' %}bg-success{% elif venta.estado_sunat == 'PENDIENTE' %}bg-warning{% else %}bg-danger{% endif %}">
+                            {{ venta.estado_sunat }}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-light dropdown-toggle" data-bs-toggle="dropdown"></button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="#"><i data-lucide="eye" class="me-2" style="width: 14px;"></i> Ver Detalles</a></li>
+                                <li><a class="dropdown-item" href="#"><i data-lucide="file-text" class="me-2" style="width: 14px;"></i> Descargar PDF</a></li>
+                                <li><a class="dropdown-item" href="#"><i data-lucide="send" class="me-2" style="width: 14px;"></i> Enviar SUNAT</a></li>
+                            </ul>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-5">
+                        <i data-lucide="shopping-cart" class="mb-3 d-block mx-auto" style="width: 48px; opacity: 0.5;"></i>
+                        No hay ventas registradas en este periodo.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

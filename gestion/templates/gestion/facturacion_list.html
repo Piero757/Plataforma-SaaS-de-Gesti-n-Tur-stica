@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+
+{% block title %}Facturación | TurismoERP{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h3 class="fw-bold mb-1">Facturación Electrónica</h3>
+        <p class="text-muted">Estado de los comprobantes electrónicos enviados a SUNAT</p>
+    </div>
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-primary d-flex align-items-center gap-2">
+            <i data-lucide="refresh-cw" style="width: 18px;"></i> Sincronizar SUNAT
+        </button>
+    </div>
+</div>
+
+<div class="card p-4">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Fecha Emisión</th>
+                    <th>Comprobante</th>
+                    <th>Venta Ref.</th>
+                    <th>XML</th>
+                    <th>PDF</th>
+                    <th>QR</th>
+                    <th>Hash / CDR</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for factura in facturas %}
+                <tr>
+                    <td>{{ factura.fecha_emision|date:"d/m/Y H:i" }}</td>
+                    <td class="fw-bold">{{ factura.venta.serie }}-{{ factura.venta.numero }}</td>
+                    <td><a href="/ventas/" class="text-decoration-none">Ver Venta #{{ factura.venta.id }}</a></td>
+                    <td>
+                        {% if factura.xml_file %}
+                            <a href="{{ factura.xml_file.url }}" class="text-success"><i data-lucide="file-code"></i></a>
+                        {% else %}
+                            <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if factura.pdf_file %}
+                            <a href="{{ factura.pdf_file.url }}" class="text-danger"><i data-lucide="file-text"></i></a>
+                        {% else %}
+                            <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if factura.qr_image %}
+                            <img src="{{ factura.qr_image.url }}" width="30" class="border">
+                        {% else %}
+                            <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td><code class="small text-muted">{{ factura.hash_cpe|default:"PENDIENTE" }}</code></td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-5">
+                        <i data-lucide="file-text" class="mb-3 d-block mx-auto" style="width: 48px; opacity: 0.5;"></i>
+                        No hay comprobantes electrónicos procesados aún.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

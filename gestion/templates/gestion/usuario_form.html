@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+
+{% block title %}Crear Usuario | TurismoERP{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <h3 class="fw-bold mb-1">Registro de Nuevo Usuario</h3>
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/" class="text-decoration-none">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="/usuarios/" class="text-decoration-none">Usuarios</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Nuevo</li>
+        </ol>
+    </nav>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card p-4 shadow-sm border-0">
+            <h5 class="fw-bold mb-4">Credenciales y Datos Personales</h5>
+            <form method="post">
+                {% csrf_token %}
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold small text-muted">Nombre de Usuario</label>
+                        {{ form.username }}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold small text-muted">Contraseña</label>
+                        {{ form.password }}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold small text-muted">Nombres</label>
+                        {{ form.first_name }}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold small text-muted">Apellidos</label>
+                        {{ form.last_name }}
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-bold small text-muted">Correo Electrónico</label>
+                        {{ form.email }}
+                    </div>
+                    <div class="col-12">
+                        <div class="form-check form-switch">
+                            {{ form.is_staff }}
+                            <label class="form-check-label fw-bold text-dark" for="{{ form.is_staff.id_for_label }}">Dar permisos de Administrador</label>
+                        </div>
+                        <small class="text-muted d-block mt-1">Los administradores pueden acceder a todos los módulos y crear otros usuarios.</small>
+                    </div>
+                </div>
+                <div class="mt-5 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary px-4">Crear Usuario</button>
+                    <a href="/usuarios/" class="btn btn-light px-4">Cancelar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+
+{% block title %}Inventario | TurismoERP{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h3 class="fw-bold mb-1">Control de Inventario</h3>
+        <p class="text-muted">Stock actual y alertas de reposición</p>
+    </div>
+    <div class="d-flex gap-2">
+        <button class="btn btn-warning text-white d-flex align-items-center gap-2">
+            <i data-lucide="alert-triangle" style="width: 18px;"></i> Ver Alertas
+        </button>
+        <button class="btn btn-primary d-flex align-items-center gap-2">
+            <i data-lucide="plus-circle" style="width: 18px;"></i> Ajuste de Stock
+        </button>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card p-3 shadow-sm border-0 bg-light-primary">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="text-primary fw-bold">Total Items</span>
+                    <h4 class="mb-0">{{ inventario.count }}</h4>
+                </div>
+                <i data-lucide="package" class="text-primary"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card p-4">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Producto</th>
+                    <th>Categoría</th>
+                    <th>Stock Actual</th>
+                    <th>S. Mínimo</th>
+                    <th>Estado</th>
+                    <th>Última Act.</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in inventario %}
+                <tr>
+                    <td class="fw-bold">{{ item.producto.nombre }}</td>
+                    <td><span class="badge bg-secondary">{{ item.producto.get_categoria_display }}</span></td>
+                    <td class="text-center">{{ item.stock_actual }}</td>
+                    <td class="text-center">{{ item.producto.stock_minimo }}</td>
+                    <td>
+                        {% if item.stock_actual <= item.producto.stock_minimo %}
+                            <span class="badge bg-danger">Agotándose</span>
+                        {% else %}
+                            <span class="badge bg-success">Disponible</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ item.ultima_actualizacion|date:"d/m/Y" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center text-muted py-5">
+                        <i data-lucide="package-search" class="mb-3 d-block mx-auto" style="width: 48px; opacity: 0.5;"></i>
+                        No hay movimientos de inventario registrados.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

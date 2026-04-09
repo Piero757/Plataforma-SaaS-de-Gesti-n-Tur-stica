@@ -1,0 +1,114 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard | TurismoERP{% endblock %}
+
+{% block content %}
+<div class="row g-4 mb-4">
+    <!-- Card Total Usuarios -->
+    <div class="col-md-3">
+        <div class="card metric-card">
+            <div class="icon bg-light-primary">
+                <i data-lucide="users"></i>
+            </div>
+            <h3 class="fw-bold mb-1">{{ total_usuarios }}</h3>
+            <span class="text-muted fw-semibold">Total Usuarios</span>
+        </div>
+    </div>
+    <!-- Card Ventas Hoy -->
+    <div class="col-md-3">
+        <div class="card metric-card">
+            <div class="icon bg-light-success">
+                <i data-lucide="shopping-cart"></i>
+            </div>
+            <h3 class="fw-bold mb-1">S/ {{ ventas_hoy|floatformat:2 }}</h3>
+            <span class="text-muted fw-semibold">Ventas del Día</span>
+        </div>
+    </div>
+    <!-- Card Inventario -->
+    <div class="col-md-3">
+        <div class="card metric-card">
+            <div class="icon bg-light-warning">
+                <i data-lucide="package"></i>
+            </div>
+            <h3 class="fw-bold mb-1">{{ productos_inventario }}</h3>
+            <span class="text-muted fw-semibold">Productos Inventario</span>
+        </div>
+    </div>
+    <!-- Card Servicios -->
+    <div class="col-md-3">
+        <div class="card metric-card">
+            <div class="icon bg-light-danger">
+                <i data-lucide="briefcase"></i>
+            </div>
+            <h3 class="fw-bold mb-1">{{ servicios_realizados }}</h3>
+            <span class="text-muted fw-semibold">Servicios Realizados</span>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="card h-100 p-4">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h5 class="fw-bold m-0">Últimas Ventas</h5>
+                <a href="/ventas/" class="btn btn-sm btn-light-primary">Ver todas</a>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>Cliente</th>
+                            <th>Total</th>
+                            <th>Estado</th>
+                            <th>Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for venta in ventas_recientes %}
+                        <tr>
+                            <td>#{{ venta.id }}</td>
+                            <td>{{ venta.cliente_nombre }}</td>
+                            <td>S/ {{ venta.total }}</td>
+                            <td>
+                                <span class="badge {% if venta.estado_sunat == 'ACEPTADO' %}bg-success{% else %}bg-warning{% endif %}">
+                                    {{ venta.estado_sunat }}
+                                </span>
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-light" title="Ver PDF"><i data-lucide="file-text" style="width: 16px;"></i></button>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center text-muted py-4">No hay ventas registradas hoy.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card h-100 p-4">
+            <h5 class="fw-bold mb-4">Ingresos del Mes</h5>
+            <div class="text-center py-4">
+                <h1 class="display-5 fw-bold text-primary">S/ {{ ingresos_mes|floatformat:2 }}</h1>
+                <p class="text-muted">Meta mensual: S/ 10,000</p>
+                <div class="progress" style="height: 10px;">
+                    <div class="progress-bar bg-primary" role="progressbar" style="width: 45%" aria-valuenow="45" aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
+            </div>
+            <hr>
+            <div class="mt-2">
+                <h6 class="fw-bold mb-3">Accesos Rápidos</h6>
+                <div class="d-grid gap-2">
+                    <button class="btn btn-outline-primary text-start"><i data-lucide="plus-circle" class="me-2" style="width: 16px;"></i> Nueva Venta</button>
+                    <button class="btn btn-outline-success text-start"><i data-lucide="package" class="me-2" style="width: 16px;"></i> Registrar Compra</button>
+                    <button class="btn btn-outline-warning text-start"><i data-lucide="file-text" class="me-2" style="width: 16px;"></i> Reporte Mensual</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

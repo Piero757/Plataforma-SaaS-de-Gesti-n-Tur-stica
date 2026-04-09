@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+
+{% block title %}Nuevo Cliente | TurismoERP{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <h3 class="fw-bold mb-1">Registro de Nuevo Cliente</h3>
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/" class="text-decoration-none">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="/clientes/" class="text-decoration-none">Clientes</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Nuevo</li>
+        </ol>
+    </nav>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card p-4 shadow-sm border-0">
+            <h5 class="fw-bold mb-4">Datos del Cliente</h5>
+            <form method="post">
+                {% csrf_token %}
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold small text-muted">Tipo Documento</label>
+                        {{ form.tipo_documento }}
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label fw-bold small text-muted">Número Documento</label>
+                        {{ form.numero_documento }}
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-bold small text-muted">Nombre o Razón Social</label>
+                        {{ form.nombre_razon_social }}
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-bold small text-muted">Dirección</label>
+                        {{ form.direccion }}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold small text-muted">Email</label>
+                        {{ form.email }}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold small text-muted">Teléfono</label>
+                        {{ form.telefono }}
+                    </div>
+                </div>
+                <div class="mt-5 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary px-4">Guardar Cliente</button>
+                    <a href="/clientes/" class="btn btn-light px-4">Cancelar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

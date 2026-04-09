@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+
+{% block title %}Proveedores | TurismoERP{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h3 class="fw-bold mb-1">Socios y Proveedores</h3>
+        <p class="text-muted">Gestión de proveedores de servicios y productos</p>
+    </div>
+    <button class="btn btn-primary d-flex align-items-center gap-2">
+        <i data-lucide="plus-circle" style="width: 18px;"></i> Nuevo Proveedor
+    </button>
+</div>
+
+<div class="card p-4">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>RUC</th>
+                    <th>Razón Social</th>
+                    <th>Email</th>
+                    <th>Teléfono</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for prov in proveedores %}
+                <tr>
+                    <td class="fw-bold">{{ prov.ruc }}</td>
+                    <td>{{ prov.razon_social }}</td>
+                    <td>{{ prov.email|default:"-" }}</td>
+                    <td>{{ prov.telefono|default:"-" }}</td>
+                    <td>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-sm btn-light"><i data-lucide="edit-3" style="width: 16px;"></i></button>
+                            <button class="btn btn-sm btn-light text-danger"><i data-lucide="trash-2" style="width: 16px;"></i></button>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center text-muted py-5">
+                        <i data-lucide="truck" class="mb-3 d-block mx-auto" style="width: 48px; opacity: 0.5;"></i>
+                        Aún no hay proveedores registrados.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+
+{% block title %}Usuarios | TurismoERP{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h3 class="fw-bold mb-1">Gestión de Usuarios</h3>
+        <p class="text-muted">Administre el personal y roles de acceso</p>
+    </div>
+    <a href="/usuarios/nuevo/" class="btn btn-primary d-flex align-items-center gap-2">
+        <i data-lucide="user-plus" style="width: 18px;"></i> Crear Usuario
+    </a>
+</div>
+
+<div class="card p-4">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Usuario</th>
+                    <th>Nombre Completo</th>
+                    <th>Email</th>
+                    <th>Rol</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for usuario in usuarios %}
+                <tr>
+                    <td><div class="d-flex align-items-center gap-3">
+                        <img src="https://ui-avatars.com/api/?name={{ usuario.username }}&background=random" class="rounded-circle" width="32">
+                        <span class="fw-bold">{{ usuario.username }}</span>
+                    </div></td>
+                    <td>{{ usuario.get_full_name|default:usuario.username }}</td>
+                    <td>{{ usuario.email }}</td>
+                    <td>
+                        {% if usuario.is_superuser %}
+                            <span class="badge bg-light-danger text-danger">Administrador</span>
+                        {% elif usuario.is_staff %}
+                            <span class="badge bg-light-primary text-primary">Staff</span>
+                        {% else %}
+                            <span class="badge bg-light-success text-success">Operador</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if usuario.is_active %}
+                            <span class="badge bg-success">Activo</span>
+                        {% else %}
+                            <span class="badge bg-danger">Inactivo</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-sm btn-light" title="Editar"><i data-lucide="edit" style="width: 16px;"></i></button>
+                            <button class="btn btn-sm btn-light text-warning" title="Bloquear"><i data-lucide="lock" style="width: 16px;"></i></button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

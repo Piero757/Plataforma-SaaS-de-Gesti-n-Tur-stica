@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+
+{% block title %}Servicios | TurismoERP{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h3 class="fw-bold mb-1">Servicios Brindados</h3>
+        <p class="text-muted">Registro de guiados, alojamiento y otros servicios turísticos</p>
+    </div>
+    <button class="btn btn-primary d-flex align-items-center gap-2">
+        <i data-lucide="plus-circle" style="width: 18px;"></i> Registrar Servicio
+    </button>
+</div>
+
+<div class="card p-4">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Fecha</th>
+                    <th>Servicio</th>
+                    <th>Cliente</th>
+                    <th>Precio</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for serv in servicios %}
+                <tr>
+                    <td>{{ serv.fecha|date:"d/m/Y H:i" }}</td>
+                    <td class="fw-bold">{{ serv.nombre_servicio }}</td>
+                    <td>{{ serv.cliente.nombre_razon_social }}</td>
+                    <td class="fw-bold text-primary">S/ {{ serv.precio }}</td>
+                    <td>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-sm btn-light"><i data-lucide="edit" style="width: 16px;"></i></button>
+                            <button class="btn btn-sm btn-light text-danger"><i data-lucide="trash" style="width: 16px;"></i></button>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center text-muted py-5">
+                        <i data-lucide="briefcase" class="mb-3 d-block mx-auto" style="width: 48px; opacity: 0.5;"></i>
+                        No hay servicios registrados aún.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+
+{% block title %}Clientes | TurismoERP{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h3 class="fw-bold mb-1">Directorio de Clientes</h3>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="/" class="text-decoration-none">Dashboard</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Clientes</li>
+            </ol>
+        </nav>
+    </div>
+    <a href="/clientes/nuevo/" class="btn btn-primary d-flex align-items-center gap-2">
+        <i data-lucide="plus-circle" style="width: 18px;"></i> Nuevo Cliente
+    </a>
+</div>
+
+<div class="card p-4">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Doc. Identidad</th>
+                    <th>Nombre / Razón Social</th>
+                    <th>Teléfono</th>
+                    <th>Email</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cliente in clientes %}
+                <tr>
+                    <td><span class="badge bg-light-primary text-primary">{{ cliente.tipo_documento }}</span> {{ cliente.numero_documento }}</td>
+                    <td class="fw-semibold">{{ cliente.nombre_razon_social }}</td>
+                    <td>{{ cliente.telefono|default:"-" }}</td>
+                    <td>{{ cliente.email|default:"-" }}</td>
+                    <td>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-sm btn-light" title="Editar"><i data-lucide="edit-3" style="width: 16px;"></i></button>
+                            <button class="btn btn-sm btn-light text-danger" title="Eliminar"><i data-lucide="trash-2" style="width: 16px;"></i></button>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center text-muted py-5">
+                        <i data-lucide="user-x" class="mb-3 d-block mx-auto" style="width: 48px; opacity: 0.5;"></i>
+                        No hay clientes registrados aún.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

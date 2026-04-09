@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+
+{% block title %}Compras | TurismoERP{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h3 class="fw-bold mb-1">Registro de Compras</h3>
+        <p class="text-muted">Gestión de facturas de proveedores y egresos</p>
+    </div>
+    <button class="btn btn-primary d-flex align-items-center gap-2">
+        <i data-lucide="plus-circle" style="width: 18px;"></i> Registrar Compra
+    </button>
+</div>
+
+<div class="card p-4">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Fecha</th>
+                    <th>Proveedor</th>
+                    <th>Tipo Doc.</th>
+                    <th>Número</th>
+                    <th>Total Pagado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for compra in compras %}
+                <tr>
+                    <td>{{ compra.fecha|date:"d/m/Y" }}</td>
+                    <td class="fw-bold">{{ compra.proveedor.razon_social }}</td>
+                    <td><span class="badge bg-light-secondary text-secondary">{{ compra.tipo_comprobante }}</span></td>
+                    <td>{{ compra.numero_comprobante }}</td>
+                    <td class="fw-bold text-danger">S/ {{ compra.total }}</td>
+                    <td>
+                        <button class="btn btn-sm btn-light" title="Ver Detalles"><i data-lucide="eye" style="width: 16px;"></i></button>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center text-muted py-5">
+                        <i data-lucide="shopping-bag" class="mb-3 d-block mx-auto" style="width: 48px; opacity: 0.5;"></i>
+                        Aún no hay compras registradas.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
