@@ -8,9 +8,9 @@
         <h3 class="fw-bold mb-1">Servicios Brindados</h3>
         <p class="text-muted">Registro de guiados, alojamiento y otros servicios turísticos</p>
     </div>
-    <button class="btn btn-primary d-flex align-items-center gap-2">
+    <a href="{% url 'servicio_create' %}" class="btn btn-primary d-flex align-items-center gap-2">
         <i data-lucide="plus-circle" style="width: 18px;"></i> Registrar Servicio
-    </button>
+    </a>
 </div>
 
 <div class="card p-4">
@@ -34,8 +34,8 @@
                     <td class="fw-bold text-primary">S/ {{ serv.precio }}</td>
                     <td>
                         <div class="d-flex gap-2">
-                            <button class="btn btn-sm btn-light"><i data-lucide="edit" style="width: 16px;"></i></button>
-                            <button class="btn btn-sm btn-light text-danger"><i data-lucide="trash" style="width: 16px;"></i></button>
+                            <a href="{% url 'servicio_update' serv.id %}" class="btn btn-sm btn-light" title="Editar"><i data-lucide="edit-3" style="width: 16px;"></i></a>
+                            <a href="{% url 'servicio_delete' serv.id %}" class="btn btn-sm btn-light text-danger" title="Eliminar" onclick="return confirm('¿Está seguro de eliminar este registro?')"><i data-lucide="trash-2" style="width: 16px;"></i></a>
                         </div>
                     </td>
                 </tr>

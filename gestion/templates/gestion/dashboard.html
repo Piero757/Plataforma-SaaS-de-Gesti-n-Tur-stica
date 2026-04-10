@@ -76,7 +76,9 @@
                                 </span>
                             </td>
                             <td>
-                                <button class="btn btn-sm btn-light" title="Ver PDF"><i data-lucide="file-text" style="width: 16px;"></i></button>
+                                <a href="{% url 'venta_pdf' venta.id %}" class="btn btn-sm btn-light-primary" title="Ver PDF">
+                                    <i data-lucide="file-text" style="width: 16px;"></i>
+                                </a>
                             </td>
                         </tr>
                         {% empty %}
@@ -103,9 +105,9 @@
             <div class="mt-2">
                 <h6 class="fw-bold mb-3">Accesos Rápidos</h6>
                 <div class="d-grid gap-2">
-                    <button class="btn btn-outline-primary text-start"><i data-lucide="plus-circle" class="me-2" style="width: 16px;"></i> Nueva Venta</button>
-                    <button class="btn btn-outline-success text-start"><i data-lucide="package" class="me-2" style="width: 16px;"></i> Registrar Compra</button>
-                    <button class="btn btn-outline-warning text-start"><i data-lucide="file-text" class="me-2" style="width: 16px;"></i> Reporte Mensual</button>
+                    <a href="{% url 'venta_create' %}" class="btn btn-outline-primary text-start"><i data-lucide="plus-circle" class="me-2" style="width: 16px;"></i> Nueva Venta</a>
+                    <a href="{% url 'compra_create' %}" class="btn btn-outline-success text-start"><i data-lucide="package" class="me-2" style="width: 16px;"></i> Registrar Compra</a>
+                    <a href="{% url 'reportes_view' %}" class="btn btn-outline-warning text-start"><i data-lucide="file-text" class="me-2" style="width: 16px;"></i> Reporte Mensual</a>
                 </div>
             </div>
         </div>

@@ -53,8 +53,10 @@
                     </td>
                     <td>
                         <div class="d-flex gap-2">
-                            <button class="btn btn-sm btn-light" title="Editar"><i data-lucide="edit" style="width: 16px;"></i></button>
-                            <button class="btn btn-sm btn-light text-warning" title="Bloquear"><i data-lucide="lock" style="width: 16px;"></i></button>
+                            <a href="{% url 'usuario_update' usuario.id %}" class="btn btn-sm btn-light" title="Editar"><i data-lucide="edit" style="width: 16px;"></i></a>
+                            <a href="{% url 'usuario_toggle_status' usuario.id %}" class="btn btn-sm btn-{% if usuario.is_active %}light-warning text-warning{% else %}light-success text-success{% endif %}" title="{% if usuario.is_active %}Bloquear{% else %}Activar{% endif %}">
+                                <i data-lucide="{% if usuario.is_active %}lock{% else %}unlock{% endif %}" style="width: 16px;"></i>
+                            </a>
                         </div>
                     </td>
                 </tr>

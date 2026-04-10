@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ titulo }} | TurismoERP{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="d-flex align-items-center gap-3 mb-4">
+            <a href="{{ request.META.HTTP_REFERER|default:'/' }}" class="btn btn-light-primary btn-sm">
+                <i data-lucide="arrow-left" style="width: 18px;"></i>
+            </a>
+            <h3 class="fw-bold m-0">{{ titulo }}</h3>
+        </div>
+
+        <div class="card p-4 shadow-sm">
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="row g-3">
+                    {% for field in form %}
+                        <div class="col-md-{% if field.name == 'descripcion' or field.name == 'observaciones' or field.name == 'comentarios' %}12{% else %}6{% endif %}">
+                            <label for="{{ field.id_for_label }}" class="form-label fw-semibold text-muted small">{{ field.label }}</label>
+                            {{ field }}
+                            {% if field.errors %}
+                                <div class="text-danger small mt-1">
+                                    {{ field.errors }}
+                                </div>
+                            {% endif %}
+                            {% if field.help_text %}
+                                <div class="form-text small">{{ field.help_text }}</div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+                
+                <hr class="my-4 text-muted opacity-25">
+                
+                <div class="d-flex justify-content-end gap-2">
+                    <a href="{{ request.META.HTTP_REFERER|default:'/' }}" class="btn btn-light">Cancelar</a>
+                    <button type="submit" class="btn btn-primary px-4">
+                        <i data-lucide="save" class="me-1" style="width: 18px;"></i> Guardar Cambios
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

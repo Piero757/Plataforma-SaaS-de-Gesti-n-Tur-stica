@@ -39,8 +39,8 @@
                     <td>{{ cliente.email|default:"-" }}</td>
                     <td>
                         <div class="d-flex gap-2">
-                            <button class="btn btn-sm btn-light" title="Editar"><i data-lucide="edit-3" style="width: 16px;"></i></button>
-                            <button class="btn btn-sm btn-light text-danger" title="Eliminar"><i data-lucide="trash-2" style="width: 16px;"></i></button>
+                            <a href="{% url 'cliente_update' cliente.id %}" class="btn btn-sm btn-light" title="Editar"><i data-lucide="edit-3" style="width: 16px;"></i></a>
+                            <a href="{% url 'cliente_delete' cliente.id %}" class="btn btn-sm btn-light text-danger" title="Eliminar" onclick="return confirm('¿Está seguro de eliminar este cliente?')"><i data-lucide="trash-2" style="width: 16px;"></i></a>
                         </div>
                     </td>
                 </tr>

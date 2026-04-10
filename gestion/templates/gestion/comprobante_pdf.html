@@ -1,0 +1,179 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>{{ venta.get_tipo_comprobante_display }} {{ venta.serie }}-{{ venta.numero }}</title>
+    <style type="text/css">
+        @page {
+            size: a4 portrait;
+            margin: 1.5cm;
+        }
+        body {
+            font-family: Helvetica, Arial, sans-serif;
+            font-size: 11px;
+            color: #333;
+        }
+        .header {
+            width: 100%;
+            border-bottom: 2px solid #009ef7;
+            padding-bottom: 20px;
+            margin-bottom: 20px;
+        }
+        .company-info {
+            width: 60%;
+            float: left;
+        }
+        .comprobante-info {
+            width: 35%;
+            float: right;
+            border: 2px solid #009ef7;
+            text-align: center;
+            padding: 10px;
+            border-radius: 10px;
+        }
+        .company-name {
+            font-size: 24px;
+            font-weight: bold;
+            color: #009ef7;
+            margin-bottom: 5px;
+        }
+        .section-title {
+            background-color: #f8f9fa;
+            padding: 5px 10px;
+            font-weight: bold;
+            border-left: 4px solid #009ef7;
+            margin-bottom: 10px;
+            margin-top: 20px;
+        }
+        .client-info {
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th {
+            background-color: #009ef7;
+            color: white;
+            padding: 8px;
+            text-align: left;
+        }
+        td {
+            padding: 8px;
+            border-bottom: 1px solid #eee;
+        }
+        .text-right { text-align: right; }
+        .text-center { text-align: center; }
+        .footer {
+            margin-top: 50px;
+            text-align: center;
+            font-size: 9px;
+            color: #888;
+        }
+        .totals {
+            margin-top: 20px;
+            width: 40%;
+            float: right;
+        }
+        .total-row {
+            font-weight: bold;
+            font-size: 14px;
+            color: #000;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="company-info">
+            <div class="company-name">TURISMO ERP</div>
+            <div>Calle Principal 123, Cusco, Perú</div>
+            <div>RUC: 20123456789</div>
+            <div>Telf: (084) 123456 | Cel: 987654321</div>
+            <div>Email: ventas@turismoerp.com</div>
+        </div>
+        <div class="comprobante-info">
+            <div style="font-size: 14px; font-weight: bold;">R.U.C. 20123456789</div>
+            <div style="font-size: 16px; font-weight: bold; margin: 10px 0;">{{ venta.get_tipo_comprobante_display|upper }} ELECTRÓNICA</div>
+            <div style="font-size: 18px; color: #f1416c;">{{ venta.serie }}-{{ venta.numero }}</div>
+        </div>
+        <div style="clear: both;"></div>
+    </div>
+
+    <div class="section-title">DATOS DEL ADQUIRIENTE</div>
+    <div class="client-info">
+        <table>
+            <tr>
+                <td width="15%"><strong>Cliente:</strong></td>
+                <td>{{ venta.cliente.nombre_razon_social }}</td>
+                <td width="15%"><strong>Fecha Emisión:</strong></td>
+                <td>{{ venta.fecha|date:"d/m/Y" }}</td>
+            </tr>
+            <tr>
+                <td><strong>{{ venta.cliente.tipo_documento }}:</strong></td>
+                <td>{{ venta.cliente.numero_documento }}</td>
+                <td><strong>Moneda:</strong></td>
+                <td>SOLES (S/)</td>
+            </tr>
+            <tr>
+                <td><strong>Dirección:</strong></td>
+                <td colspan="3">{{ venta.cliente.direccion|default:"-" }}</td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="section-title">DETALLE DEL COMPROBANTE</div>
+    <table>
+        <thead>
+            <tr>
+                <th width="10%">Cant.</th>
+                <th>Descripción</th>
+                <th width="15%" class="text-right">P. Unit.</th>
+                <th width="15%" class="text-right">Importe</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for detalle in detalles %}
+            <tr>
+                <td class="text-center">{{ detalle.cantidad }}</td>
+                <td>{{ detalle.producto.nombre }}</td>
+                <td class="text-right">{{ detalle.precio_unitario|floatformat:2 }}</td>
+                <td class="text-right">{{ detalle.subtotal|floatformat:2 }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="4" class="text-center" style="padding: 20px;">No hay detalles registrados para este comprobante.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="totals">
+        <table>
+            <tr>
+                <td class="text-right">OP. GRAVADA:</td>
+                <td class="text-right" width="40%">S/ {{ op_gravada|floatformat:2 }}</td>
+            </tr>
+            <tr>
+                <td class="text-right">I.G.V. (18%):</td>
+                <td class="text-right">S/ {{ igv|floatformat:2 }}</td>
+            </tr>
+            <tr class="total-row">
+                <td class="text-right">TOTAL:</td>
+                <td class="text-right">S/ {{ venta.total|floatformat:2 }}</td>
+            </tr>
+        </table>
+    </div>
+    <div style="clear: both;"></div>
+
+    <div style="margin-top: 40px; border-top: 1px dashed #ccc; padding-top: 20px;">
+        <p><strong>SON:</strong> {{ total_letras|default:"Monto en letras..." }}</p>
+        <p style="font-size: 10px;">Forma de Pago: {{ venta.get_forma_pago_display }}</p>
+    </div>
+
+    <div class="footer">
+        <p>Representación impresa de la {{ venta.get_tipo_comprobante_display|lower }} electrónica consultada en sunat.gob.pe</p>
+        <p>Generado por TurismoERP - Soluciones Digitales para el Sector Turismo</p>
+    </div>
+</body>
+</html>

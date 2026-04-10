@@ -9,12 +9,12 @@
         <p class="text-muted">Análisis de rendimiento, ventas y servicios</p>
     </div>
     <div class="d-flex gap-2">
-        <button class="btn btn-light-danger d-flex align-items-center gap-2">
+        <button class="btn btn-light-danger d-flex align-items-center gap-2" onclick="alert('Generando Reporte PDF...')">
             <i data-lucide="file-text" style="width: 18px;"></i> Exportar PDF
         </button>
-        <button class="btn btn-light-success d-flex align-items-center gap-2">
+        <a href="{% url 'exportar_ventas_excel' %}" class="btn btn-light-success d-flex align-items-center gap-2">
             <i data-lucide="download" style="width: 18px;"></i> Exportar Excel
-        </button>
+        </a>
     </div>
 </div>
 

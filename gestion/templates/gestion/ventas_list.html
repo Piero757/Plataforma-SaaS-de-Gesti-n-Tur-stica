@@ -9,12 +9,12 @@
         <p class="text-muted">Gestione sus ingresos y comprobantes electrónicos</p>
     </div>
     <div class="d-flex gap-2">
-        <a href="/ventas/exportar/" class="btn btn-light-success d-flex align-items-center gap-2">
+        <a href="{% url 'exportar_ventas_excel' %}" class="btn btn-light-success d-flex align-items-center gap-2">
             <i data-lucide="download" style="width: 18px;"></i> Exportar Excel
         </a>
-        <button class="btn btn-primary d-flex align-items-center gap-2">
+        <a href="{% url 'venta_create' %}" class="btn btn-primary d-flex align-items-center gap-2">
             <i data-lucide="plus-circle" style="width: 18px;"></i> Nueva Venta
-        </button>
+        </a>
     </div>
 </div>
 
@@ -56,9 +56,9 @@
                         <div class="dropdown">
                             <button class="btn btn-sm btn-light dropdown-toggle" data-bs-toggle="dropdown"></button>
                             <ul class="dropdown-menu">
-                                <li><a class="dropdown-item" href="#"><i data-lucide="eye" class="me-2" style="width: 14px;"></i> Ver Detalles</a></li>
-                                <li><a class="dropdown-item" href="#"><i data-lucide="file-text" class="me-2" style="width: 14px;"></i> Descargar PDF</a></li>
-                                <li><a class="dropdown-item" href="#"><i data-lucide="send" class="me-2" style="width: 14px;"></i> Enviar SUNAT</a></li>
+                                <li><a class="dropdown-item text-muted" href="#"><i data-lucide="eye" class="me-2" style="width: 14px;"></i> Ver Detalles</a></li>
+                                <li><a class="dropdown-item" href="{% url 'venta_pdf' venta.id %}"><i data-lucide="file-text" class="me-2" style="width: 14px;"></i> Descargar PDF</a></li>
+                                <li><a class="dropdown-item" href="{% url 'enviar_sunat' venta.id %}"><i data-lucide="send" class="me-2" style="width: 14px;"></i> Enviar SUNAT</a></li>
                             </ul>
                         </div>
                     </td>

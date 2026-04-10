@@ -1,15 +1,15 @@
 {% extends 'base.html' %}
 
-{% block title %}Crear Usuario | TurismoERP{% endblock %}
+{% block title %}{{ titulo }} | TurismoERP{% endblock %}
 
 {% block content %}
 <div class="mb-4">
-    <h3 class="fw-bold mb-1">Registro de Nuevo Usuario</h3>
+    <h3 class="fw-bold mb-1">{{ titulo }}</h3>
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a href="/" class="text-decoration-none">Dashboard</a></li>
             <li class="breadcrumb-item"><a href="/usuarios/" class="text-decoration-none">Usuarios</a></li>
-            <li class="breadcrumb-item active" aria-current="page">Nuevo</li>
+            <li class="breadcrumb-item active" aria-current="page">Formulario</li>
         </ol>
     </nav>
 </div>
@@ -50,7 +50,7 @@
                     </div>
                 </div>
                 <div class="mt-5 d-flex gap-2">
-                    <button type="submit" class="btn btn-primary px-4">Crear Usuario</button>
+                    <button type="submit" class="btn btn-primary px-4">Guardar</button>
                     <a href="/usuarios/" class="btn btn-light px-4">Cancelar</a>
                 </div>
             </form>
