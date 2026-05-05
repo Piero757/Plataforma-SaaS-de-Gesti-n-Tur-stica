@@ -8,9 +8,20 @@
         <h3 class="fw-bold mb-1">Socios y Proveedores</h3>
         <p class="text-muted">Gestión de proveedores de servicios y productos</p>
     </div>
-    <a href="{% url 'proveedor_create' %}" class="btn btn-primary d-flex align-items-center gap-2">
-        <i data-lucide="plus-circle" style="width: 18px;"></i> Nuevo Proveedor
-    </a>
+    <div class="d-flex gap-2">
+        {% if not es_historial %}
+        <a href="{% url 'proveedores_historial' %}" class="btn btn-outline-secondary d-flex align-items-center gap-2">
+            <i data-lucide="history" style="width: 18px;"></i> Historial
+        </a>
+        <a href="{% url 'proveedor_create' %}" class="btn btn-primary d-flex align-items-center gap-2">
+            <i data-lucide="plus-circle" style="width: 18px;"></i> Nuevo Proveedor
+        </a>
+        {% else %}
+        <a href="{% url 'proveedores_list' %}" class="btn btn-outline-primary d-flex align-items-center gap-2">
+            <i data-lucide="arrow-left" style="width: 18px;"></i> Volver a Lista
+        </a>
+        {% endif %}
+    </div>
 </div>
 
 <div class="card p-4">
@@ -20,6 +31,7 @@
                 <tr>
                     <th>RUC</th>
                     <th>Razón Social</th>
+                    <th>Contacto</th>
                     <th>Email</th>
                     <th>Teléfono</th>
                     <th>Acciones</th>
@@ -30,12 +42,17 @@
                 <tr>
                     <td class="fw-bold">{{ prov.ruc }}</td>
                     <td>{{ prov.razon_social }}</td>
+                    <td>{{ prov.persona_contacto|default:"-" }}</td>
                     <td>{{ prov.email|default:"-" }}</td>
                     <td>{{ prov.telefono|default:"-" }}</td>
                     <td>
                         <div class="d-flex gap-2">
+                            {% if not es_historial %}
                             <a href="{% url 'proveedor_update' prov.id %}" class="btn btn-sm btn-light" title="Editar"><i data-lucide="edit-3" style="width: 16px;"></i></a>
-                            <a href="{% url 'proveedor_delete' prov.id %}" class="btn btn-sm btn-light text-danger" title="Eliminar" onclick="return confirm('¿Está seguro de eliminar este proveedor?')"><i data-lucide="trash-2" style="width: 16px;"></i></a>
+                            <a href="{% url 'proveedor_delete' prov.id %}" class="btn btn-sm btn-light text-danger" title="Mover al Historial" onclick="return confirm('¿Está seguro de enviar este proveedor al historial?')"><i data-lucide="archive" style="width: 16px;"></i></a>
+                            {% else %}
+                            <a href="{% url 'proveedor_restore' prov.id %}" class="btn btn-sm btn-success" title="Restaurar"><i data-lucide="rotate-ccw" style="width: 16px;"></i></a>
+                            {% endif %}
                         </div>
                     </td>
                 </tr>
@@ -43,7 +60,7 @@
                 <tr>
                     <td colspan="5" class="text-center text-muted py-5">
                         <i data-lucide="truck" class="mb-3 d-block mx-auto" style="width: 48px; opacity: 0.5;"></i>
-                        Aún no hay proveedores registrados.
+                        {% if es_historial %} No hay registros en el historial. {% else %} Aún no hay proveedores registrados. {% endif %}
                     </td>
                 </tr>
                 {% endfor %}

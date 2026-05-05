@@ -9,9 +9,9 @@
         <p class="text-muted">Análisis de rendimiento, ventas y servicios</p>
     </div>
     <div class="d-flex gap-2">
-        <button class="btn btn-light-danger d-flex align-items-center gap-2" onclick="alert('Generando Reporte PDF...')">
+        <a href="{% url 'reporte_general_pdf' %}" class="btn btn-light-danger d-flex align-items-center gap-2">
             <i data-lucide="file-text" style="width: 18px;"></i> Exportar PDF
-        </button>
+        </a>
         <a href="{% url 'exportar_ventas_excel' %}" class="btn btn-light-success d-flex align-items-center gap-2">
             <i data-lucide="download" style="width: 18px;"></i> Exportar Excel
         </a>
@@ -21,23 +21,26 @@
 <!-- Filtros -->
 <div class="card p-4 mb-4">
     <h6 class="fw-bold mb-3">Filtros de Búsqueda</h6>
-    <form class="row g-3">
+    <form class="row g-3" method="GET">
         <div class="col-md-3">
             <label class="form-label small fw-bold">Rango de Fecha</label>
-            <input type="date" class="form-control">
+            <input type="date" name="fecha_inicio" class="form-control" value="{{ fecha_inicio|default:'' }}">
         </div>
         <div class="col-md-3">
             <label class="form-label small fw-bold">Hasta</label>
-            <input type="date" class="form-control">
+            <input type="date" name="fecha_fin" class="form-control" value="{{ fecha_fin|default:'' }}">
         </div>
         <div class="col-md-3">
             <label class="form-label small fw-bold">Usuario/Vendedor</label>
-            <select class="form-control">
-                <option>Todos</option>
+            <select name="usuario" class="form-control">
+                <option value="Todos">Todos</option>
+                {% for u in usuarios %}
+                <option value="{{ u.id }}" {% if usuario_seleccionado == u.id|stringformat:"s" %}selected{% endif %}>{{ u.get_full_name|default:u.username }}</option>
+                {% endfor %}
             </select>
         </div>
         <div class="col-md-3 d-flex align-items-end">
-            <button class="btn btn-primary w-100"><i data-lucide="search" class="me-2" style="width: 16px;"></i> Filtrar</button>
+            <button type="submit" class="btn btn-primary w-100"><i data-lucide="search" class="me-2" style="width: 16px;"></i> Filtrar</button>
         </div>
     </form>
 </div>
@@ -45,7 +48,23 @@
 <div class="row g-4 mb-4">
     <div class="col-lg-7">
         <div class="card p-4 h-100">
-            <h5 class="fw-bold mb-4">Ventas por Mes</h5>
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h5 class="fw-bold mb-0">Ventas por 
+                    {% if periodo_seleccionado == 'dia' %} Día 
+                    {% elif periodo_seleccionado == 'semana' %} Semana 
+                    {% else %} Mes {% endif %}
+                </h5>
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle border-0" type="button" id="periodDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i data-lucide="filter" class="me-1" style="width: 14px;"></i> Cambiar vista
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="periodDropdown">
+                        <li><a class="dropdown-item {% if periodo_seleccionado == 'dia' %}active{% endif %}" href="?periodo=dia&fecha_inicio={{ fecha_inicio|default:'' }}&fecha_fin={{ fecha_fin|default:'' }}&usuario={{ usuario_seleccionado|default:'Todos' }}">Por Día</a></li>
+                        <li><a class="dropdown-item {% if periodo_seleccionado == 'semana' %}active{% endif %}" href="?periodo=semana&fecha_inicio={{ fecha_inicio|default:'' }}&fecha_fin={{ fecha_fin|default:'' }}&usuario={{ usuario_seleccionado|default:'Todos' }}">Por Semana</a></li>
+                        <li><a class="dropdown-item {% if periodo_seleccionado == 'mes' %}active{% endif %}" href="?periodo=mes&fecha_inicio={{ fecha_inicio|default:'' }}&fecha_fin={{ fecha_fin|default:'' }}&usuario={{ usuario_seleccionado|default:'Todos' }}">Por Mes</a></li>
+                    </ul>
+                </div>
+            </div>
             <canvas id="salesChart" height="250"></canvas>
         </div>
     </div>
@@ -74,8 +93,8 @@
                 <tr>
                     <td class="fw-bold">{{ cliente.nombre_razon_social }}</td>
                     <td>{{ cliente.num_ventas }}</td>
-                    <td class="text-primary fw-bold">S/ {{ cliente.total_comprado|default:0.00 }}</td>
-                    <td><span class="badge bg-light-primary text-primary">VIP</span></td>
+                    <td class="text-primary fw-bold">S/ {{ cliente.total_invertido|default:0.00|floatformat:2 }}</td>
+                    <td><span class="badge bg-light-primary text-primary">Activo</span></td>
                 </tr>
                 {% empty %}
                 <tr>
@@ -97,10 +116,10 @@
     new Chart(salesCtx, {
         type: 'line',
         data: {
-            labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'],
+            labels: {{ sales_labels|safe }},
             datasets: [{
                 label: 'Ventas S/',
-                data: [1200, 1900, 3000, 5000, 2300, 3400],
+                data: {{ sales_data|safe }},
                 borderColor: '#009ef7',
                 backgroundColor: 'rgba(0, 158, 247, 0.1)',
                 fill: true,
@@ -118,10 +137,10 @@
     new Chart(servicesCtx, {
         type: 'doughnut',
         data: {
-            labels: ['Guiado', 'Alojamiento', 'Traslado', 'Otros'],
+            labels: {{ services_labels|safe }},
             datasets: [{
-                data: [45, 25, 20, 10],
-                backgroundColor: ['#009ef7', '#50cd89', '#ff9900', '#f1416c']
+                data: {{ services_data|safe }},
+                backgroundColor: ['#009ef7', '#50cd89', '#ff9900', '#f1416c', '#7239ea']
             }]
         },
         options: {

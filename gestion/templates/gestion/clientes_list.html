@@ -13,18 +13,54 @@
             </ol>
         </nav>
     </div>
-    <a href="/clientes/nuevo/" class="btn btn-primary d-flex align-items-center gap-2">
-        <i data-lucide="plus-circle" style="width: 18px;"></i> Nuevo Cliente
-    </a>
+    <div class="d-flex gap-2">
+        {% if not es_historial %}
+        <a href="{% url 'clientes_historial' %}" class="btn btn-outline-secondary d-flex align-items-center gap-2">
+            <i data-lucide="history" style="width: 18px;"></i> Historial
+        </a>
+        <a href="/clientes/nuevo/" class="btn btn-primary d-flex align-items-center gap-2">
+            <i data-lucide="plus-circle" style="width: 18px;"></i> Nuevo Cliente
+        </a>
+        {% else %}
+        <a href="{% url 'clientes_list' %}" class="btn btn-outline-primary d-flex align-items-center gap-2">
+            <i data-lucide="arrow-left" style="width: 18px;"></i> Volver a Lista
+        </a>
+        {% endif %}
+    </div>
 </div>
 
 <div class="card p-4">
+    <!-- Filtros y Busqueda -->
+    <form method="GET" class="row g-3 mb-4">
+        <div class="col-md-5">
+            <div class="input-group">
+                <span class="input-group-text bg-white border-end-0"><i data-lucide="search" style="width: 18px;"></i></span>
+                <input type="text" name="q" class="form-control border-start-0" placeholder="Buscar por nombre o documento..." value="{{ query|default:'' }}">
+            </div>
+        </div>
+        <div class="col-md-3">
+            <select name="tipo" class="form-select">
+                <option value="Todos">Todos los tipos</option>
+                {% for code, name in tipos_documento %}
+                <option value="{{ code }}" {% if tipo_seleccionado == code %}selected{% endif %}>{{ name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-4 d-flex gap-2">
+            <button type="submit" class="btn btn-primary px-4">Filtrar</button>
+            {% if query or tipo_seleccionado and tipo_seleccionado != 'Todos' %}
+            <a href="{% if es_historial %}{% url 'clientes_historial' %}{% else %}{% url 'clientes_list' %}{% endif %}" class="btn btn-outline-secondary">Limpiar</a>
+            {% endif %}
+        </div>
+    </form>
+
     <div class="table-responsive">
         <table class="table table-hover align-middle">
             <thead class="table-light">
                 <tr>
                     <th>Doc. Identidad</th>
                     <th>Nombre / Razón Social</th>
+                    <th>Contacto</th>
                     <th>Teléfono</th>
                     <th>Email</th>
                     <th>Acciones</th>
@@ -35,12 +71,17 @@
                 <tr>
                     <td><span class="badge bg-light-primary text-primary">{{ cliente.tipo_documento }}</span> {{ cliente.numero_documento }}</td>
                     <td class="fw-semibold">{{ cliente.nombre_razon_social }}</td>
+                    <td>{{ cliente.persona_contacto|default:"-" }}</td>
                     <td>{{ cliente.telefono|default:"-" }}</td>
                     <td>{{ cliente.email|default:"-" }}</td>
                     <td>
                         <div class="d-flex gap-2">
+                            {% if not es_historial %}
                             <a href="{% url 'cliente_update' cliente.id %}" class="btn btn-sm btn-light" title="Editar"><i data-lucide="edit-3" style="width: 16px;"></i></a>
-                            <a href="{% url 'cliente_delete' cliente.id %}" class="btn btn-sm btn-light text-danger" title="Eliminar" onclick="return confirm('¿Está seguro de eliminar este cliente?')"><i data-lucide="trash-2" style="width: 16px;"></i></a>
+                            <a href="{% url 'cliente_delete' cliente.id %}" class="btn btn-sm btn-light text-danger" title="Mover al Historial" onclick="return confirm('¿Está seguro de enviar este cliente al historial?')"><i data-lucide="archive" style="width: 16px;"></i></a>
+                            {% else %}
+                            <a href="{% url 'cliente_restore' cliente.id %}" class="btn btn-sm btn-success" title="Restaurar"><i data-lucide="rotate-ccw" style="width: 16px;"></i></a>
+                            {% endif %}
                         </div>
                     </td>
                 </tr>
@@ -48,7 +89,7 @@
                 <tr>
                     <td colspan="5" class="text-center text-muted py-5">
                         <i data-lucide="user-x" class="mb-3 d-block mx-auto" style="width: 48px; opacity: 0.5;"></i>
-                        No hay clientes registrados aún.
+                        {% if es_historial %} No hay registros en el historial. {% else %} No hay clientes registrados aún. {% endif %}
                     </td>
                 </tr>
                 {% endfor %}

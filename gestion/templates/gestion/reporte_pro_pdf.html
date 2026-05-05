@@ -1,0 +1,110 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>Reporte de Gestión - TurismoERP</title>
+    <style type="text/css">
+        @page {
+            size: a4 portrait;
+            margin: 2cm;
+            @frame footer {
+                -pdf-frame-content: footer_content;
+                bottom: 1cm;
+                margin-left: 2cm;
+                margin-right: 2cm;
+                height: 1cm;
+            }
+        }
+        body { font-family: Helvetica, Arial, sans-serif; font-size: 11px; color: #333; }
+        .header { text-align: center; border-bottom: 2px solid #009ef7; padding-bottom: 10px; margin-bottom: 30px; }
+        .title { font-size: 22px; font-weight: bold; color: #009ef7; }
+        .subtitle { font-size: 14px; color: #666; margin-top: 5px; }
+        .kpi-container { width: 100%; margin-bottom: 30px; }
+        .kpi-card { width: 23%; float: left; border: 1px solid #eee; background-color: #fafafa; padding: 10px; text-align: center; border-radius: 5px; margin-right: 1.5%; }
+        .kpi-value { font-size: 18px; font-weight: bold; color: #000; margin: 5px 0; }
+        .kpi-label { font-size: 9px; color: #888; text-transform: upper; }
+        .section-title { font-size: 14px; font-weight: bold; margin: 25px 0 10px 0; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th { background-color: #f4f4f4; padding: 8px; text-align: left; border-bottom: 2px solid #ddd; }
+        td { padding: 8px; border-bottom: 1px solid #eee; }
+        .text-right { text-align: right; }
+        .badge { padding: 2px 6px; border-radius: 3px; font-size: 9px; color: white; }
+        .bg-success { background-color: #50cd89; }
+        .bg-primary { background-color: #009ef7; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="title">TURISMO ERP - REPORTE DE GESTIÓN</div>
+        <div class="subtitle">Generado el {{ fecha|date:"d/m/Y H:i" }}</div>
+    </div>
+
+    <div class="kpi-container">
+        <div class="kpi-card">
+            <div class="kpi-label">Ventas del Mes</div>
+            <div class="kpi-value">S/ {{ ingresos_mes|floatformat:2 }}</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Servicios Brindados</div>
+            <div class="kpi-value">{{ servicios_totales }}</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Nuevos Clientes</div>
+            <div class="kpi-value">{{ nuevos_clientes }}</div>
+        </div>
+        <div class="kpi-card" style="margin-right: 0;">
+            <div class="kpi-label">Stock Crítico</div>
+            <div class="kpi-value">{{ stock_critico }}</div>
+        </div>
+        <div style="clear: both;"></div>
+    </div>
+
+    <div class="section-title">TOP CLIENTES (POR VOLUMEN DE VENTA)</div>
+    <table>
+        <thead>
+            <tr>
+                <th>Cliente</th>
+                <th class="text-right">Nro. Ventas</th>
+                <th class="text-right">Monto Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for cliente in clientes_top %}
+            <tr>
+                <td>{{ cliente.nombre_razon_social }}</td>
+                <td class="text-right">{{ cliente.num_ventas }}</td>
+                <td class="text-right">S/ {{ cliente.total_invertido|floatformat:2|default:"0.00" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="section-title">ÚLTIMAS VENTAS REGISTRADAS</div>
+    <table>
+        <thead>
+            <tr>
+                <th>Fecha</th>
+                <th>Comprobante</th>
+                <th>Cliente</th>
+                <th class="text-right">Total</th>
+                <th>Estado</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for venta in ventas_recientes %}
+            <tr>
+                <td>{{ venta.fecha|date:"d/m/Y" }}</td>
+                <td>{{ venta.serie }}-{{ venta.numero }}</td>
+                <td>{{ venta.cliente.nombre_razon_social }}</td>
+                <td class="text-right">S/ {{ venta.total|floatformat:2 }}</td>
+                <td><span class="badge bg-primary">{{ venta.estado_sunat }}</span></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div id="footer_content">
+        Página <pdf:pagenumber> de <pdf:pagecount> - TurismoERP Management Reporting System
+    </div>
+</body>
+</html>

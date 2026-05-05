@@ -1,6 +1,11 @@
 from django.db import models
 from django.contrib.auth.models import User
 
+MODULO_CHOICES = [
+    ('HOTEL', 'Hotel'),
+    ('RESTAURANTE', 'Restaurante'),
+]
+
 class Cliente(models.Model):
     TIPO_DOCUMENTO = [
         ('DNI', 'DNI'),
@@ -10,9 +15,12 @@ class Cliente(models.Model):
     tipo_documento = models.CharField(max_length=5, choices=TIPO_DOCUMENTO, default='DNI')
     numero_documento = models.CharField(max_length=20, unique=True)
     nombre_razon_social = models.CharField(max_length=200)
+    persona_contacto = models.CharField(max_length=200, blank=True, null=True)
     direccion = models.CharField(max_length=255, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
     telefono = models.CharField(max_length=20, blank=True, null=True)
+    activo = models.BooleanField(default=True)
+    modulo = models.CharField(max_length=20, choices=MODULO_CHOICES, default='HOTEL')
 
     def __str__(self):
         return f"{self.numero_documento} - {self.nombre_razon_social}"
@@ -20,9 +28,12 @@ class Cliente(models.Model):
 class Proveedor(models.Model):
     ruc = models.CharField(max_length=11, unique=True)
     razon_social = models.CharField(max_length=200)
+    persona_contacto = models.CharField(max_length=200, blank=True, null=True)
     direccion = models.CharField(max_length=255, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
     telefono = models.CharField(max_length=20, blank=True, null=True)
+    activo = models.BooleanField(default=True)
+    modulo = models.CharField(max_length=20, choices=MODULO_CHOICES, default='HOTEL')
 
     def __str__(self):
         return self.razon_social
@@ -32,6 +43,7 @@ class Producto(models.Model):
         ('TURISMO', 'Servicio Turístico'),
         ('HOSPEDAJE', 'Hospedaje'),
         ('SOUVENIR', 'Souvenir / Producto'),
+        ('RESTAURANTE', 'Restaurante'),
         ('OTROS', 'Otros'),
     ]
     codigo = models.CharField(max_length=50, unique=True)
@@ -41,6 +53,8 @@ class Producto(models.Model):
     precio_compra = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     precio_venta = models.DecimalField(max_digits=10, decimal_places=2)
     stock_minimo = models.PositiveIntegerField(default=5)
+    activo = models.BooleanField(default=True)
+    modulo = models.CharField(max_length=20, choices=MODULO_CHOICES, default='HOTEL')
 
     def __str__(self):
         return self.nombre
@@ -80,6 +94,7 @@ class Venta(models.Model):
     forma_pago = models.CharField(max_length=10, choices=FORMA_PAGO, default='CONTADO')
     estado_sunat = models.CharField(max_length=20, choices=ESTADO_SUNAT, default='PENDIENTE')
     observaciones = models.TextField(blank=True, null=True)
+    modulo = models.CharField(max_length=20, choices=MODULO_CHOICES, default='HOTEL')
 
     def __str__(self):
         return f"{self.tipo_comprobante} {self.serie}-{self.numero}"
@@ -100,6 +115,7 @@ class Compra(models.Model):
     tipo_comprobante = models.CharField(max_length=50) # Factura de proveedor
     numero_comprobante = models.CharField(max_length=50)
     total = models.DecimalField(max_digits=10, decimal_places=2)
+    modulo = models.CharField(max_length=20, choices=MODULO_CHOICES, default='HOTEL')
 
     def __str__(self):
         return f"Compra {self.numero_comprobante} - {self.proveedor.razon_social}"
@@ -110,6 +126,7 @@ class RegistroServicio(models.Model):
     fecha = models.DateTimeField()
     precio = models.DecimalField(max_digits=10, decimal_places=2)
     comentarios = models.TextField(blank=True, null=True)
+    modulo = models.CharField(max_length=20, choices=MODULO_CHOICES, default='HOTEL')
 
     def __str__(self):
         return f"{self.nombre_servicio} - {self.cliente.nombre_razon_social}"
@@ -124,3 +141,33 @@ class FacturaElectronica(models.Model):
 
     def __str__(self):
         return f"CPE {self.venta.serie}-{self.venta.numero}"
+
+class ConfiguracionEmpresa(models.Model):
+    # Datos Legales
+    ruc = models.CharField(max_length=11)
+    razon_social = models.CharField(max_length=255)
+    nombre_comercial = models.CharField(max_length=255, blank=True, null=True)
+    direccion = models.CharField(max_length=255)
+    departamento = models.CharField(max_length=50, default='AREQUIPA')
+    provincia = models.CharField(max_length=50, default='AREQUIPA')
+    distrito = models.CharField(max_length=50, default='AREQUIPA')
+    
+    # Credenciales SUNAT
+    usuario_sol = models.CharField(max_length=50, default='MODDATOS')
+    clave_sol = models.CharField(max_length=50, default='MODDATOS')
+    certificado_digital = models.FileField(upload_to='certificados/', blank=True, null=True)
+    password_certificado = models.CharField(max_length=100, blank=True, null=True)
+    
+    # Entorno
+    AMBIENTE_CHOICES = [
+        ('BETA', 'Pruebas (BETA)'),
+        ('PRODUCCION', 'Producción'),
+    ]
+    ambiente = models.CharField(max_length=20, choices=AMBIENTE_CHOICES, default='BETA')
+    
+    class Meta:
+        verbose_name = "Configuración de Empresa"
+        verbose_name_plural = "Configuración de Empresa"
+
+    def __str__(self):
+        return f"{self.ruc} - {self.razon_social}"

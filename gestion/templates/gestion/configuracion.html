@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+
+{% block title %}Configuración de Empresa | TurismoERP{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h3 class="fw-bold mb-1">Configuración del Sistema</h3>
+        <p class="text-muted">Gestione los datos legales de su empresa y credenciales de SUNAT</p>
+    </div>
+</div>
+
+<form method="POST" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="row g-4">
+        <!-- Datos de la Empresa -->
+        <div class="col-lg-7">
+            <div class="card p-4">
+                <h5 class="fw-bold mb-4 d-flex align-items-center gap-2">
+                    <i data-lucide="building" class="text-primary"></i> Datos Legales
+                </h5>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold">Número de RUC</label>
+                        {{ form.ruc }}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold">Ambiente de Trabajo</label>
+                        {{ form.ambiente }}
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small fw-bold">Razón Social</label>
+                        {{ form.razon_social }}
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small fw-bold">Nombre Comercial</label>
+                        {{ form.nombre_comercial }}
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small fw-bold">Dirección Fiscal</label>
+                        {{ form.direccion }}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">Departamento</label>
+                        {{ form.departamento }}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">Provincia</label>
+                        {{ form.provincia }}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">Distrito</label>
+                        {{ form.distrito }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Credenciales SUNAT -->
+        <div class="col-lg-5">
+            <div class="card p-4 mb-4">
+                <h5 class="fw-bold mb-4 d-flex align-items-center gap-2">
+                    <i data-lucide="key" class="text-warning"></i> Credenciales SOL
+                </h5>
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="form-label small fw-bold">Usuario SOL</label>
+                        {{ form.usuario_sol }}
+                        <div class="form-text">Generalmente es el RUC + Usuario.</div>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small fw-bold">Clave SOL</label>
+                        {{ form.clave_sol }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="card p-4">
+                <h5 class="fw-bold mb-4 d-flex align-items-center gap-2">
+                    <i data-lucide="shield-check" class="text-success"></i> Certificado Digital
+                </h5>
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="form-label small fw-bold">Subir Certificado (.pfx / .p12)</label>
+                        {{ form.certificado_digital }}
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small fw-bold">Contraseña del Certificado</label>
+                        {{ form.password_certificado }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-4 pt-3 border-top d-flex justify-content-end gap-2">
+        <button type="reset" class="btn btn-light">Descartar Cambios</button>
+        <button type="submit" class="btn btn-primary px-5">Guardar Configuración</button>
+    </div>
+</form>
+
+{% endblock %}

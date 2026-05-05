@@ -5,11 +5,15 @@ from django.http import HttpResponse, JsonResponse
 from django import forms
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from .models import Venta, Producto, Inventario, RegistroServicio, Cliente, Proveedor, Compra, FacturaElectronica, DetalleVenta
-from .forms import ClienteForm, UsuarioCreateForm, ProveedorForm, ProductoForm, CompraForm, VentaForm, ServicioForm
+from .models import Venta, Producto, Inventario, RegistroServicio, Cliente, Proveedor, Compra, FacturaElectronica, DetalleVenta, ConfiguracionEmpresa
+from .forms import ClienteForm, UsuarioCreateForm, ProveedorForm, ProductoForm, CompraForm, VentaForm, ServicioForm, ConfiguracionEmpresaForm
 import openpyxl
+import csv
+from datetime import datetime
 from .utils import render_to_pdf
 from django.contrib.auth.models import User
+from django.db.models.functions import TruncMonth
+import json
 
 # --- DASHBOARD ---
 
@@ -18,21 +22,58 @@ def dashboard_view(request):
     today = timezone.now().date()
     month_start = today.replace(day=1)
 
+    modulo = request.session.get('modulo', 'HOTEL')
+    
     total_usuarios = User.objects.count()
-    ventas_hoy = Venta.objects.filter(fecha__date=today).aggregate(Sum('total'))['total__sum'] or 0
-    productos_inventario = Producto.objects.filter(categoria='SOUVENIR').count()
-    servicios_realizados = RegistroServicio.objects.count()
-    ingresos_mes = Venta.objects.filter(fecha__date__gte=month_start).aggregate(Sum('total'))['total__sum'] or 0
+    ventas_hoy = Venta.objects.filter(fecha__date=today, modulo=modulo).aggregate(Sum('total'))['total__sum'] or 0
+    productos_inventario = Producto.objects.filter(modulo=modulo).count()
+    servicios_realizados = RegistroServicio.objects.filter(modulo=modulo).count()
+    ingresos_mes = Venta.objects.filter(fecha__date__gte=month_start, modulo=modulo).aggregate(Sum('total'))['total__sum'] or 0
 
     context = {
+        'modulo_actual': modulo,
         'total_usuarios': total_usuarios,
         'ventas_hoy': ventas_hoy,
         'productos_inventario': productos_inventario,
         'servicios_realizados': servicios_realizados,
         'ingresos_mes': ingresos_mes,
-        'ventas_recientes': Venta.objects.order_by('-fecha')[:5],
+        'ventas_recientes': Venta.objects.filter(modulo=modulo).order_by('-fecha')[:5],
     }
     return render(request, 'gestion/dashboard.html', context)
+
+@login_required
+def restaurante_view(request):
+    today = timezone.now().date()
+    # Productos de restaurante
+    productos = Producto.objects.filter(categoria='RESTAURANTE', activo=True)
+    
+    # Ventas de restaurante (aquellas que incluyen al menos un producto de restaurante)
+    ventas_restaurante = Venta.objects.filter(
+        detalles__producto__categoria='RESTAURANTE'
+    ).distinct().order_by('-fecha')
+    
+    # Métricas hoy
+    ventas_hoy = Venta.objects.filter(
+        fecha__date=today,
+        detalles__producto__categoria='RESTAURANTE'
+    ).distinct().aggregate(Sum('total'))['total__sum'] or 0
+    
+    context = {
+        'productos': productos,
+        'ventas_recientes': ventas_restaurante[:5],
+        'ventas_hoy': ventas_hoy,
+        'cantidad_productos': productos.count(),
+        'titulo': 'Panel de Restaurante'
+    }
+    return render(request, 'gestion/restaurante_dashboard.html', context)
+
+@login_required
+def cambiar_modulo(request):
+    modulo = request.GET.get('modulo', 'HOTEL')
+    if modulo in ['HOTEL', 'RESTAURANTE']:
+        request.session['modulo'] = modulo
+        messages.success(request, f"Cambiado al módulo: {modulo.capitalize()}")
+    return redirect('dashboard')
 
 # --- USUARIOS ---
 
@@ -79,19 +120,68 @@ def usuario_toggle_status(request, pk):
         messages.info(request, f"Usuario {status} correctamente.")
     return redirect('usuarios_list')
 
+from django.db.models import Q
+
 # --- CLIENTES ---
 
 @login_required
 def clientes_list(request):
-    clientes = Cliente.objects.all()
-    return render(request, 'gestion/clientes_list.html', {'clientes': clientes})
+    modulo = request.session.get('modulo', 'HOTEL')
+    query = request.GET.get('q')
+    tipo = request.GET.get('tipo')
+    
+    clientes = Cliente.objects.filter(activo=True, modulo=modulo)
+    
+    if query:
+        clientes = clientes.filter(
+            Q(nombre_razon_social__icontains=query) | 
+            Q(numero_documento__icontains=query)
+        )
+    
+    if tipo and tipo != 'Todos':
+        clientes = clientes.filter(tipo_documento=tipo)
+        
+    context = {
+        'clientes': clientes,
+        'query': query,
+        'tipo_seleccionado': tipo,
+        'tipos_documento': Cliente.TIPO_DOCUMENTO
+    }
+    return render(request, 'gestion/clientes_list.html', context)
+
+@login_required
+def clientes_historial(request):
+    query = request.GET.get('q')
+    tipo = request.GET.get('tipo')
+    
+    clientes = Cliente.objects.filter(activo=False)
+    
+    if query:
+        clientes = clientes.filter(
+            Q(nombre_razon_social__icontains=query) | 
+            Q(numero_documento__icontains=query)
+        )
+    
+    if tipo and tipo != 'Todos':
+        clientes = clientes.filter(tipo_documento=tipo)
+
+    return render(request, 'gestion/clientes_list.html', {
+        'clientes': clientes, 
+        'es_historial': True,
+        'titulo': 'Historial de Clientes (Eliminados)',
+        'query': query,
+        'tipo_seleccionado': tipo,
+        'tipos_documento': Cliente.TIPO_DOCUMENTO
+    })
 
 @login_required
 def cliente_create(request):
     if request.method == 'POST':
         form = ClienteForm(request.POST)
         if form.is_valid():
-            form.save()
+            cliente = form.save(commit=False)
+            cliente.modulo = request.session.get('modulo', 'HOTEL')
+            cliente.save()
             messages.success(request, "Cliente registrado correctamente.")
             return redirect('clientes_list')
     else:
@@ -114,26 +204,44 @@ def cliente_update(request, pk):
 @login_required
 def cliente_delete(request, pk):
     cliente = get_object_or_404(Cliente, pk=pk)
-    try:
-        cliente.delete()
-        messages.success(request, "Cliente eliminado.")
-    except Exception:
-        messages.error(request, "No se puede eliminar el cliente porque tiene registros asociados.")
+    cliente.activo = False
+    cliente.save()
+    messages.success(request, "Cliente movido al historial.")
+    return redirect('clientes_list')
+
+@login_required
+def cliente_restore(request, pk):
+    cliente = get_object_or_404(Cliente, pk=pk)
+    cliente.activo = True
+    cliente.save()
+    messages.success(request, "Cliente restaurado correctamente.")
     return redirect('clientes_list')
 
 # --- PROVEEDORES ---
 
 @login_required
 def proveedores_list(request):
-    proveedores = Proveedor.objects.all()
+    modulo = request.session.get('modulo', 'HOTEL')
+    proveedores = Proveedor.objects.filter(activo=True, modulo=modulo)
     return render(request, 'gestion/proveedores_list.html', {'proveedores': proveedores})
+
+@login_required
+def proveedores_historial(request):
+    proveedores = Proveedor.objects.filter(activo=False)
+    return render(request, 'gestion/proveedores_list.html', {
+        'proveedores': proveedores,
+        'es_historial': True,
+        'titulo': 'Historial de Proveedores'
+    })
 
 @login_required
 def proveedor_create(request):
     if request.method == 'POST':
         form = ProveedorForm(request.POST)
         if form.is_valid():
-            form.save()
+            prov = form.save(commit=False)
+            prov.modulo = request.session.get('modulo', 'HOTEL')
+            prov.save()
             messages.success(request, "Proveedor registrado.")
             return redirect('proveedores_list')
     else:
@@ -156,23 +264,44 @@ def proveedor_update(request, pk):
 @login_required
 def proveedor_delete(request, pk):
     proveedor = get_object_or_404(Proveedor, pk=pk)
-    proveedor.delete()
-    messages.success(request, "Proveedor eliminado.")
+    proveedor.activo = False
+    proveedor.save()
+    messages.success(request, "Proveedor movido al historial.")
+    return redirect('proveedores_list')
+
+@login_required
+def proveedor_restore(request, pk):
+    proveedor = get_object_or_404(Proveedor, pk=pk)
+    proveedor.activo = True
+    proveedor.save()
+    messages.success(request, "Proveedor restaurado.")
     return redirect('proveedores_list')
 
 # --- PRODUCTOS / INVENTARIO ---
 
 @login_required
 def inventario_list(request):
-    inventario = Inventario.objects.all()
+    modulo = request.session.get('modulo', 'HOTEL')
+    inventario = Inventario.objects.filter(producto__activo=True, producto__modulo=modulo)
     return render(request, 'gestion/inventario_list.html', {'inventario': inventario})
+
+@login_required
+def inventario_historial(request):
+    inventario = Inventario.objects.filter(producto__activo=False)
+    return render(request, 'gestion/inventario_list.html', {
+        'inventario': inventario,
+        'es_historial': True,
+        'titulo': 'Historial de Productos'
+    })
 
 @login_required
 def producto_create(request):
     if request.method == 'POST':
         form = ProductoForm(request.POST)
         if form.is_valid():
-            producto = form.save()
+            producto = form.save(commit=False)
+            producto.modulo = request.session.get('modulo', 'HOTEL')
+            producto.save()
             # Crear entrada en inventario si no existe
             Inventario.objects.get_or_create(producto=producto, defaults={'stock_actual': 0})
             messages.success(request, "Producto creado.")
@@ -193,12 +322,28 @@ def producto_update(request, pk):
     else:
         form = ProductoForm(instance=producto)
     return render(request, 'gestion/base_form.html', {'form': form, 'titulo': 'Editar Producto'})
+@login_required
+def producto_delete(request, pk):
+    producto = get_object_or_404(Producto, pk=pk)
+    producto.activo = False
+    producto.save()
+    messages.success(request, "Producto movido al historial.")
+    return redirect('inventario_list')
+
+@login_required
+def producto_restore(request, pk):
+    producto = get_object_or_404(Producto, pk=pk)
+    producto.activo = True
+    producto.save()
+    messages.success(request, "Producto restaurado.")
+    return redirect('inventario_list')
 
 # --- VENTAS ---
 
 @login_required
 def ventas_list(request):
-    ventas = Venta.objects.all().order_by('-fecha')
+    modulo = request.session.get('modulo', 'HOTEL')
+    ventas = Venta.objects.filter(modulo=modulo).order_by('-fecha')
     return render(request, 'gestion/ventas_list.html', {'ventas': ventas})
 
 @login_required
@@ -208,6 +353,7 @@ def venta_create(request):
         if form.is_valid():
             venta = form.save(commit=False)
             venta.usuario = request.user
+            venta.modulo = request.session.get('modulo', 'HOTEL')
             venta.save()
             messages.success(request, "Venta registrada correctamente.")
             return redirect('ventas_list')
@@ -243,11 +389,115 @@ def venta_pdf(request, pk):
     messages.error(request, "No se pudo generar el PDF del comprobante.")
     return redirect('ventas_list')
 
+@login_required
+def importar_ventas(request):
+    if request.method == 'POST' and request.FILES.get('archivo'):
+        archivo = request.FILES['archivo']
+        if not (archivo.name.endswith('.xlsx') or archivo.name.endswith('.csv')):
+            messages.error(request, "Solo se admiten archivos .xlsx o .csv")
+            return redirect('ventas_list')
+
+        try:
+            ventas_creadas = 0
+            if archivo.name.endswith('.xlsx'):
+                wb = openpyxl.load_workbook(archivo, data_only=True)
+                ws = wb.active
+                headers = [str(cell.value).lower().strip() if cell.value else "" for cell in ws[1]]
+                rows = ws.iter_rows(min_row=2, values_only=True)
+            else:
+                decoded_file = archivo.read().decode('utf-8').splitlines()
+                reader = csv.reader(decoded_file)
+                headers = [h.lower().strip() for h in next(reader)]
+                rows = reader
+
+            # Mapeo de columnas comunes
+            idx_fecha = -1
+            idx_cliente = -1
+            idx_doc = -1
+            idx_tipo = -1
+            idx_serie = -1
+            idx_numero = -1
+            idx_total = -1
+
+            for i, h in enumerate(headers):
+                if 'fecha' in h or 'emision' in h: idx_fecha = i
+                elif 'cliente' in h or 'nombre' in h or 'razon' in h: idx_cliente = i
+                elif 'ruc' in h or 'dni' in h or 'documento' in h: idx_doc = i
+                elif 'tipo' in h or 'comprobante' in h: idx_tipo = i
+                elif 'serie' in h: idx_serie = i
+                elif 'numero' in h or 'correlativo' in h: idx_numero = i
+                elif 'total' in h or 'monto' in h or 'importe' in h: idx_total = i
+
+            if idx_total == -1 or (idx_cliente == -1 and idx_doc == -1):
+                messages.error(request, "No se pudieron identificar las columnas necesarias en el archivo.")
+                return redirect('ventas_list')
+
+            for row in rows:
+                if not any(row): continue
+                
+                try:
+                    fecha_val = row[idx_fecha] if idx_fecha != -1 else None
+                    if isinstance(fecha_val, datetime):
+                        fecha = fecha_val
+                    elif isinstance(fecha_val, str):
+                        for fmt in ('%Y-%m-%d', '%d/%m/%Y', '%d-%m-%Y'):
+                            try:
+                                fecha = datetime.strptime(fecha_val, fmt)
+                                break
+                            except: continue
+                        else: fecha = timezone.now()
+                    else: fecha = timezone.now()
+
+                    monto_total = float(row[idx_total])
+                    nombre_cliente = str(row[idx_cliente]) if idx_cliente != -1 else "Cliente Importado"
+                    doc_cliente = str(row[idx_doc]) if idx_doc != -1 else "00000000"
+                    
+                    tipo_raw = str(row[idx_tipo]).upper() if idx_tipo != -1 else "BOLETA"
+                    if 'FACTURA' in tipo_raw: tipo_comp = 'FACTURA'
+                    elif 'NOTA' in tipo_raw and 'CREDITO' in tipo_raw: tipo_comp = 'NOTA_CREDITO'
+                    else: tipo_comp = 'BOLETA'
+                    
+                    serie = str(row[idx_serie]) if idx_serie != -1 else "E001"
+                    numero_val = row[idx_numero] if idx_numero != -1 else 1
+                    try: numero = int(numero_val)
+                    except: numero = 1
+
+                    cliente, _ = Cliente.objects.get_or_create(
+                        numero_documento=doc_cliente,
+                        defaults={
+                            'nombre_razon_social': nombre_cliente,
+                            'tipo_documento': 'RUC' if len(doc_cliente) == 11 else 'DNI'
+                        }
+                    )
+
+                    Venta.objects.create(
+                        cliente=cliente,
+                        usuario=request.user,
+                        fecha=fecha,
+                        tipo_comprobante=tipo_comp,
+                        serie=serie,
+                        numero=numero,
+                        total=monto_total,
+                        forma_pago='CONTADO',
+                        estado_sunat='ACEPTADO'
+                    )
+                    ventas_creadas += 1
+                except Exception as e:
+                    print(f"Error en fila: {e}")
+                    continue
+
+            messages.success(request, f"Importación finalizada: {ventas_creadas} ventas registradas.")
+        except Exception as e:
+            messages.error(request, f"Error crítico al importar: {str(e)}")
+            
+    return redirect('ventas_list')
+
 # --- COMPRAS ---
 
 @login_required
 def compras_list(request):
-    compras = Compra.objects.all().order_by('-fecha')
+    modulo = request.session.get('modulo', 'HOTEL')
+    compras = Compra.objects.filter(modulo=modulo).order_by('-fecha')
     return render(request, 'gestion/compras_list.html', {'compras': compras})
 
 @login_required
@@ -255,7 +505,9 @@ def compra_create(request):
     if request.method == 'POST':
         form = CompraForm(request.POST)
         if form.is_valid():
-            form.save()
+            compra = form.save(commit=False)
+            compra.modulo = request.session.get('modulo', 'HOTEL')
+            compra.save()
             messages.success(request, "Compra registrada.")
             return redirect('compras_list')
     else:
@@ -266,7 +518,8 @@ def compra_create(request):
 
 @login_required
 def servicios_list(request):
-    servicios = RegistroServicio.objects.all().order_by('-fecha')
+    modulo = request.session.get('modulo', 'HOTEL')
+    servicios = RegistroServicio.objects.filter(modulo=modulo).order_by('-fecha')
     return render(request, 'gestion/servicios_list.html', {'servicios': servicios})
 
 @login_required
@@ -274,7 +527,9 @@ def servicio_create(request):
     if request.method == 'POST':
         form = ServicioForm(request.POST)
         if form.is_valid():
-            form.save()
+            servicio = form.save(commit=False)
+            servicio.modulo = request.session.get('modulo', 'HOTEL')
+            servicio.save()
             messages.success(request, "Servicio registrado.")
             return redirect('servicios_list')
     else:
@@ -318,40 +573,145 @@ def enviar_sunat(request, pk):
 
 @login_required
 def reportes_view(request):
-    ventas_por_mes = Venta.objects.extra(select={'month': "EXTRACT(month FROM fecha)"}).values('month').annotate(total=Sum('total')).order_by('month')
-    servicios_populares = RegistroServicio.objects.values('nombre_servicio').annotate(count=Count('id')).order_by('-count')[:5]
+    # --- FILTROS ---
+    fecha_inicio = request.GET.get('fecha_inicio')
+    fecha_fin = request.GET.get('fecha_fin')
+    usuario_id = request.GET.get('usuario')
+    periodo = request.GET.get('periodo', 'mes') # dia, semana, mes
+    
+    ventas_qs = Venta.objects.all()
+    servicios_qs = RegistroServicio.objects.all()
+    
+    if fecha_inicio:
+        ventas_qs = ventas_qs.filter(fecha__date__gte=fecha_inicio)
+        servicios_qs = servicios_qs.filter(fecha__date__gte=fecha_inicio)
+    if fecha_fin:
+        ventas_qs = ventas_qs.filter(fecha__date__lte=fecha_fin)
+        servicios_qs = servicios_qs.filter(fecha__date__lte=fecha_fin)
+    if usuario_id and usuario_id != 'Todos':
+        ventas_qs = ventas_qs.filter(usuario_id=usuario_id)
+    
+    # --- AGRUPACIÓN DE VENTAS ---
+    from django.db.models.functions import TruncDay, TruncWeek, TruncMonth
+    
+    if periodo == 'dia':
+        trunc_func = TruncDay('fecha')
+        date_format = '%d/%m'
+    elif periodo == 'semana':
+        trunc_func = TruncWeek('fecha')
+        date_format = 'Sem %W'
+    else: # mes
+        trunc_func = TruncMonth('fecha')
+        date_format = '%b'
+
+    ventas_agrupadas = ventas_qs.annotate(
+        time_unit=trunc_func
+    ).values('time_unit').annotate(total=Sum('total')).order_by('time_unit')
+    
+    sales_labels = []
+    sales_data = []
+    
+    for v in ventas_agrupadas:
+        if v['time_unit']:
+            label = v['time_unit'].strftime(date_format)
+            sales_labels.append(label)
+            sales_data.append(float(v['total']))
+        
+    # --- SERVICIOS POPULARES ---
+    servicios_query = servicios_qs.values('nombre_servicio').annotate(
+        count=Count('id')
+    ).order_by('-count')[:5]
+    
+    services_labels = [s['nombre_servicio'] for s in servicios_query]
+    services_data = [s['count'] for s in servicios_query]
+    
+    # --- TOP CLIENTES ---
+    clientes_top = Cliente.objects.filter(venta__in=ventas_qs).distinct().annotate(
+        num_ventas=Count('venta'),
+        total_invertido=Sum('venta__total')
+    ).order_by('-total_invertido')[:10]
     
     context = {
-        'ventas_por_mes': ventas_por_mes,
-        'servicios_populares': servicios_populares,
-        'clientes_top': Cliente.objects.annotate(num_ventas=Count('venta')).order_by('-num_ventas')[:5],
+        'sales_labels': json.dumps(sales_labels),
+        'sales_data': json.dumps(sales_data),
+        'services_labels': json.dumps(services_labels),
+        'services_data': json.dumps(services_data),
+        'clientes_top': clientes_top,
+        'usuarios': User.objects.all(),
+        'fecha_inicio': fecha_inicio,
+        'fecha_fin': fecha_fin,
+        'usuario_seleccionado': usuario_id,
+        'periodo_seleccionado': periodo,
     }
     return render(request, 'gestion/reportes.html', context)
 
 @login_required
 def exportar_ventas_excel(request):
+    # ... (keeping existing code)
     response = HttpResponse(content_type='application/ms-excel')
     response['Content-Disposition'] = 'attachment; filename="reporte_ventas.xlsx"'
-
+    # ... (omitting for brevity in instruction but I will include full logic in the tool call)
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Ventas"
-
     columns = ['ID', 'Fecha', 'Cliente', 'Tipo', 'Serie-Numero', 'Total', 'Forma Pago', 'Estado SUNAT']
     ws.append(columns)
-
     ventas = Venta.objects.all().order_by('-fecha')
     for v in ventas:
-        ws.append([
-            v.id,
-            v.fecha.strftime('%d/%m/%Y %H:%M'),
-            v.cliente.nombre_razon_social,
-            v.tipo_comprobante,
-            f"{v.serie}-{v.numero}",
-            float(v.total),
-            v.forma_pago,
-            v.estado_sunat
-        ])
-
+        ws.append([v.id, v.fecha.strftime('%d/%m/%Y %H:%M'), v.cliente.nombre_razon_social,
+                   v.tipo_comprobante, f"{v.serie}-{v.numero}", float(v.total), v.forma_pago, v.estado_sunat])
     wb.save(response)
     return response
+
+@login_required
+def reporte_general_pdf(request):
+    today = timezone.now()
+    month_start = today.replace(day=1, hour=0, minute=0, second=0)
+    
+    # Estadísticas para el reporte
+    ingresos_mes = Venta.objects.filter(fecha__gte=month_start).aggregate(Sum('total'))['total__sum'] or 0
+    servicios_totales = RegistroServicio.objects.count()
+    nuevos_clientes = Cliente.objects.filter(id__gt=0).count() # Placeholder logic
+    stock_critico = Inventario.objects.filter(stock_actual__lte=F('producto__stock_minimo')).count()
+    
+    # Top Clientes (con suma de ventas)
+    clientes_top = Cliente.objects.annotate(
+        num_ventas=Count('venta'),
+        total_invertido=Sum('venta__total')
+    ).order_by('-total_invertido')[:5]
+    
+    data = {
+        'fecha': today,
+        'ingresos_mes': ingresos_mes,
+        'servicios_totales': servicios_totales,
+        'nuevos_clientes': nuevos_clientes,
+        'stock_critico': stock_critico,
+        'clientes_top': clientes_top,
+        'ventas_recientes': Venta.objects.all().order_by('-fecha')[:10]
+    }
+    
+    pdf = render_to_pdf('gestion/reporte_pro_pdf.html', data)
+    if pdf:
+        response = HttpResponse(pdf, content_type='application/pdf')
+        response['Content-Disposition'] = 'inline; filename="Reporte_Gestion_TurismoERP.pdf"'
+        return response
+    return HttpResponse("Error generando reporte", status=400)
+
+@login_required
+def configuracion_empresa(request):
+    config, created = ConfiguracionEmpresa.objects.get_or_create(id=1, defaults={
+        'ruc': '20123456789',
+        'razon_social': 'Mi Empresa Turística S.A.C.',
+        'direccion': 'Calle Principal 123, Arequipa',
+    })
+    
+    if request.method == 'POST':
+        form = ConfiguracionEmpresaForm(request.POST, request.FILES, instance=config)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Configuración guardada correctamente.")
+            return redirect('configuracion_empresa')
+    else:
+        form = ConfiguracionEmpresaForm(instance=config)
+        
+    return render(request, 'gestion/configuracion.html', {'form': form, 'config': config})

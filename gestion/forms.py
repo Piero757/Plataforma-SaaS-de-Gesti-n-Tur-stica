@@ -1,15 +1,16 @@
 from django import forms
 from django.contrib.auth.models import User
-from .models import Cliente, Proveedor, Producto, Compra, Venta, RegistroServicio, Inventario
+from .models import Cliente, Proveedor, Producto, Compra, Venta, RegistroServicio, Inventario, ConfiguracionEmpresa
 
 class ClienteForm(forms.ModelForm):
     class Meta:
         model = Cliente
-        fields = ['tipo_documento', 'numero_documento', 'nombre_razon_social', 'direccion', 'email', 'telefono']
+        fields = ['tipo_documento', 'numero_documento', 'nombre_razon_social', 'persona_contacto', 'direccion', 'email', 'telefono']
         widgets = {
             'tipo_documento': forms.Select(attrs={'class': 'form-select'}),
             'numero_documento': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 12345678 o 20123456789'}),
             'nombre_razon_social': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Juan Pérez o Empresa S.A.C.'}),
+            'persona_contacto': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Contacto de compras'}),
             'direccion': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Av. Principal 123'}),
             'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'ejemplo@correo.com'}),
             'telefono': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 987654321'}),
@@ -18,10 +19,11 @@ class ClienteForm(forms.ModelForm):
 class ProveedorForm(forms.ModelForm):
     class Meta:
         model = Proveedor
-        fields = ['ruc', 'razon_social', 'direccion', 'email', 'telefono']
+        fields = ['ruc', 'razon_social', 'persona_contacto', 'direccion', 'email', 'telefono']
         widgets = {
             'ruc': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 20123456789'}),
             'razon_social': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Distribuidora Turística S.A.'}),
+            'persona_contacto': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Juan Pérez'}),
             'direccion': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Jr. Independencia 456'}),
             'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'proveedor@empresa.com'}),
             'telefono': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 01 4445566'}),
@@ -99,3 +101,22 @@ class UsuarioCreateForm(forms.ModelForm):
         if commit:
             user.save()
         return user
+
+class ConfiguracionEmpresaForm(forms.ModelForm):
+    class Meta:
+        model = ConfiguracionEmpresa
+        fields = '__all__'
+        widgets = {
+            'ruc': forms.TextInput(attrs={'class': 'form-control', 'maxlength': '11'}),
+            'razon_social': forms.TextInput(attrs={'class': 'form-control'}),
+            'nombre_comercial': forms.TextInput(attrs={'class': 'form-control'}),
+            'direccion': forms.TextInput(attrs={'class': 'form-control'}),
+            'departamento': forms.TextInput(attrs={'class': 'form-control'}),
+            'provincia': forms.TextInput(attrs={'class': 'form-control'}),
+            'distrito': forms.TextInput(attrs={'class': 'form-control'}),
+            'usuario_sol': forms.TextInput(attrs={'class': 'form-control'}),
+            'clave_sol': forms.PasswordInput(attrs={'class': 'form-control'}, render_value=True),
+            'certificado_digital': forms.FileInput(attrs={'class': 'form-control'}),
+            'password_certificado': forms.PasswordInput(attrs={'class': 'form-control'}, render_value=True),
+            'ambiente': forms.Select(attrs={'class': 'form-select'}),
+        }

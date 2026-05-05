@@ -1,0 +1,128 @@
+{% extends 'base.html' %}
+
+{% block title %}Restaurante | TurismoERP{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h3 class="fw-bold mb-1">Panel de Restaurante</h3>
+        <p class="text-muted">Gestión de menú, pedidos y ventas de alimentos</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'producto_create' %}?categoria=RESTAURANTE" class="btn btn-outline-primary d-flex align-items-center gap-2">
+            <i data-lucide="plus" style="width: 18px;"></i> Nuevo Plato/Bebida
+        </a>
+        <a href="{% url 'venta_create' %}" class="btn btn-primary d-flex align-items-center gap-2">
+            <i data-lucide="shopping-cart" style="width: 18px;"></i> Nueva Comanda
+        </a>
+    </div>
+</div>
+
+<!-- Metrics -->
+<div class="row g-4 mb-4">
+    <div class="col-md-4">
+        <div class="card metric-card">
+            <div class="icon bg-light-success">
+                <i data-lucide="dollar-sign"></i>
+            </div>
+            <h6 class="text-muted small fw-bold">VENTAS RESTAURANTE HOY</h6>
+            <h3 class="fw-bold mb-0">S/ {{ ventas_hoy|floatformat:2 }}</h3>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card metric-card">
+            <div class="icon bg-light-primary">
+                <i data-lucide="utensils"></i>
+            </div>
+            <h6 class="text-muted small fw-bold">PLATOS EN MENÚ</h6>
+            <h3 class="fw-bold mb-0">{{ cantidad_productos }}</h3>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card metric-card">
+            <div class="icon bg-light-warning">
+                <i data-lucide="clipboard-list"></i>
+            </div>
+            <h6 class="text-muted small fw-bold">ÓRDENES RECIENTES</h6>
+            <h3 class="fw-bold mb-0">{{ ventas_recientes.count }}</h3>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Menu Table -->
+    <div class="col-lg-7">
+        <div class="card p-4">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h5 class="fw-bold m-0">Menú / Carta</h5>
+                <a href="{% url 'inventario_list' %}" class="text-primary text-decoration-none small">Ver todo el inventario</a>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Código</th>
+                            <th>Descripción</th>
+                            <th>Precio</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for prod in productos %}
+                        <tr>
+                            <td class="text-muted small">{{ prod.codigo }}</td>
+                            <td class="fw-semibold">{{ prod.nombre }}</td>
+                            <td class="fw-bold text-dark">S/ {{ prod.precio_venta }}</td>
+                            <td>
+                                {% if prod.activo %}
+                                <span class="badge bg-light-success text-success">Disponible</span>
+                                {% else %}
+                                <span class="badge bg-light-danger text-danger">Agotado</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center text-muted py-4">No hay platos registrados en el menú.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Sales Table -->
+    <div class="col-lg-5">
+        <div class="card p-4">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h5 class="fw-bold m-0">Últimas Comandas</h5>
+                <a href="{% url 'ventas_list' %}" class="text-primary text-decoration-none small">Ver todas</a>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm table-borderless align-middle">
+                    <tbody>
+                        {% for venta in ventas_recientes %}
+                        <tr class="border-bottom">
+                            <td class="py-3">
+                                <div class="fw-bold text-dark">S/ {{ venta.total }}</div>
+                                <small class="text-muted">{{ venta.fecha|date:"H:i" }} - {{ venta.cliente.nombre_razon_social|truncatechars:15 }}</small>
+                            </td>
+                            <td class="text-end">
+                                <span class="badge {% if venta.estado_sunat == 'ACEPTADO' %}bg-success{% else %}bg-warning{% endif %} badge-sm">
+                                    {{ venta.estado_sunat }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="2" class="text-center text-muted py-4">No hay ventas recientes.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

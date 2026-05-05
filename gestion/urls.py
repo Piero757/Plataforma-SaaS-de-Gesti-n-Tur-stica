@@ -4,6 +4,8 @@ from . import views
 urlpatterns = [
     # Dashboard
     path('', views.dashboard_view, name='dashboard'),
+    path('restaurante/', views.restaurante_view, name='restaurante'),
+    path('modulo/cambiar/', views.cambiar_modulo, name='cambiar_modulo'),
     
     # Usuarios
     path('usuarios/', views.usuarios_list, name='usuarios_list'),
@@ -16,23 +18,31 @@ urlpatterns = [
     path('clientes/nuevo/', views.cliente_create, name='cliente_create'),
     path('clientes/editar/<int:pk>/', views.cliente_update, name='cliente_update'),
     path('clientes/eliminar/<int:pk>/', views.cliente_delete, name='cliente_delete'),
+    path('clientes/historial/', views.clientes_historial, name='clientes_historial'),
+    path('clientes/restaurar/<int:pk>/', views.cliente_restore, name='cliente_restore'),
     
     # Proveedores
     path('proveedores/', views.proveedores_list, name='proveedores_list'),
     path('proveedores/nuevo/', views.proveedor_create, name='proveedor_create'),
     path('proveedores/editar/<int:pk>/', views.proveedor_update, name='proveedor_update'),
     path('proveedores/eliminar/<int:pk>/', views.proveedor_delete, name='proveedor_delete'),
+    path('proveedores/historial/', views.proveedores_historial, name='proveedores_historial'),
+    path('proveedores/restaurar/<int:pk>/', views.proveedor_restore, name='proveedor_restore'),
     
     # Inventario / Productos
     path('inventario/', views.inventario_list, name='inventario_list'),
     path('productos/nuevo/', views.producto_create, name='producto_create'),
     path('productos/editar/<int:pk>/', views.producto_update, name='producto_update'),
+    path('productos/eliminar/<int:pk>/', views.producto_delete, name='producto_delete'),
+    path('inventario/historial/', views.inventario_historial, name='inventario_historial'),
+    path('productos/restaurar/<int:pk>/', views.producto_restore, name='producto_restore'),
     
     # Ventas
     path('ventas/', views.ventas_list, name='ventas_list'),
     path('ventas/nuevo/', views.venta_create, name='venta_create'),
     path('ventas/pdf/<int:pk>/', views.venta_pdf, name='venta_pdf'),
     path('ventas/exportar/', views.exportar_ventas_excel, name='exportar_ventas_excel'),
+    path('ventas/importar/', views.importar_ventas, name='importar_ventas'),
     
     # Compras
     path('compras/', views.compras_list, name='compras_list'),
@@ -48,6 +58,8 @@ urlpatterns = [
     path('facturacion/', views.facturacion_list, name='facturacion_list'),
     path('facturacion/enviar/<int:pk>/', views.enviar_sunat, name='enviar_sunat'),
     
-    # Reportes
-    path('reportes/', views.reportes_view, name='reportes_view'),
+    # Reportes y Exportación
+    path('reportes/', views.reportes_view, name='reportes'),
+    path('configuracion/', views.configuracion_empresa, name='configuracion_empresa'),
+    path('reportes/pdf/', views.reporte_general_pdf, name='reporte_general_pdf'),
 ]

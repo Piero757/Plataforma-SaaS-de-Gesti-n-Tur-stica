@@ -9,12 +9,44 @@
         <p class="text-muted">Gestione sus ingresos y comprobantes electrónicos</p>
     </div>
     <div class="d-flex gap-2">
+        <button type="button" class="btn btn-outline-primary d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#modalImportar">
+            <i data-lucide="upload" style="width: 18px;"></i> Importar
+        </button>
         <a href="{% url 'exportar_ventas_excel' %}" class="btn btn-light-success d-flex align-items-center gap-2">
             <i data-lucide="download" style="width: 18px;"></i> Exportar Excel
         </a>
         <a href="{% url 'venta_create' %}" class="btn btn-primary d-flex align-items-center gap-2">
             <i data-lucide="plus-circle" style="width: 18px;"></i> Nueva Venta
         </a>
+    </div>
+</div>
+
+<!-- Modal Importar -->
+<div class="modal fade" id="modalImportar" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title fw-bold">Importar Ventas Históricas</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{% url 'importar_ventas' %}" method="POST" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-body p-4">
+                    <div class="alert alert-info border-0 small mb-4">
+                        <i data-lucide="info" class="me-2" style="width: 16px;"></i>
+                        Sube el Excel o CSV exportado de SUNAT. El sistema identificará automáticamente columnas como: Fecha, Cliente, RUC, Serie, Número y Total.
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-muted">Seleccionar Archivo (.xlsx, .csv)</label>
+                        <input type="file" name="archivo" class="form-control form-control-lg" accept=".xlsx, .csv" required>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary px-4">Procesar Archivo</button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 

@@ -114,14 +114,28 @@
 </head>
 <body>
 
-    <aside id="sidebar">
-        <div class="logo">
-            <i data-lucide="palmtree"></i>
-            <span>TurismoERP</span>
+    <aside id="sidebar" style="{% if request.session.modulo == 'RESTAURANTE' %}--sidebar-bg: #2d1e2d; --sidebar-hover: #402b40;{% endif %}">
+        <div class="px-4 py-4 mb-2">
+            <div class="logo mb-3">
+                <i data-lucide="{% if request.session.modulo == 'RESTAURANTE' %}utensils{% else %}palmtree{% endif %}" style="color: {% if request.session.modulo == 'RESTAURANTE' %}#ff9900{% else %}#009ef7{% endif %};"></i>
+                <span>TurismoERP</span>
+            </div>
+            {% if request.session.modulo == 'RESTAURANTE' %}
+            <a href="{% url 'cambiar_modulo' %}?modulo=HOTEL" class="btn btn-sm btn-light-primary w-100 d-flex align-items-center justify-content-center gap-2 py-2 fw-bold" style="background: rgba(0, 158, 247, 0.1); border: 1px solid rgba(0, 158, 247, 0.2); color: #009ef7;">
+                <i data-lucide="hotel" style="width: 16px;"></i> Ir a Hotel
+            </a>
+            {% else %}
+            <a href="{% url 'cambiar_modulo' %}?modulo=RESTAURANTE" class="btn btn-sm btn-light-warning w-100 d-flex align-items-center justify-content-center gap-2 py-2 fw-bold" style="background: rgba(255, 153, 0, 0.1); border: 1px solid rgba(255, 153, 0, 0.2); color: #ff9900;">
+                <i data-lucide="utensils" style="width: 16px;"></i> Ir a Restaurante
+            </a>
+            {% endif %}
         </div>
+        
         <nav class="nav flex-column">
-            <a href="/" class="nav-link active"><i data-lucide="layout-dashboard"></i> Dashboard</a>
-            <a href="/usuarios/" class="nav-link"><i data-lucide="users"></i> Usuarios</a>
+            <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}">
+                <i data-lucide="layout-dashboard"></i> Dashboard {% if request.session.modulo == 'RESTAURANTE' %}(Rest.){% endif %}
+            </a>
+            <a href="/usuarios/" class="nav-link {% if '/usuarios/' in request.path %}active{% endif %}"><i data-lucide="users"></i> Usuarios</a>
             <a href="/clientes/" class="nav-link"><i data-lucide="user-check"></i> Clientes</a>
             <a href="/proveedores/" class="nav-link"><i data-lucide="truck"></i> Proveedores</a>
             <a href="/ventas/" class="nav-link"><i data-lucide="shopping-cart"></i> Ventas</a>
@@ -130,6 +144,7 @@
             <a href="/facturacion/" class="nav-link"><i data-lucide="file-text"></i> Facturación</a>
             <a href="/servicios/" class="nav-link"><i data-lucide="briefcase"></i> Servicios</a>
             <a href="/reportes/" class="nav-link"><i data-lucide="bar-chart-3"></i> Reportes</a>
+            <a href="{% url 'configuracion_empresa' %}" class="nav-link"><i data-lucide="settings"></i> Configuración</a>
         </nav>
     </aside>
 
