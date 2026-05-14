@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ titulo }} | TurismoERP{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="d-flex align-items-center gap-3 mb-4">
+            <a href="{% url 'reserva_list' %}" class="btn btn-light-primary btn-sm">
+                <i data-lucide="arrow-left" style="width: 18px;"></i>
+            </a>
+            <h3 class="fw-bold m-0">{{ titulo }}</h3>
+        </div>
+
+        <div class="card p-4 shadow-sm">
+            <form method="post" id="reservaForm">
+                {% csrf_token %}
+                <div class="row g-3">
+                    {% for field in form %}
+                        <div class="col-md-{% if field.name == 'observaciones' %}12{% else %}6{% endif %}">
+                            <label for="{{ field.id_for_label }}" class="form-label fw-semibold text-muted small">{{ field.label }}</label>
+                            {{ field }}
+                            {% if field.errors %}
+                                <div class="text-danger small mt-1">
+                                    {{ field.errors }}
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+                
+                <hr class="my-4 text-muted opacity-25">
+                
+                <div class="d-flex justify-content-end gap-2">
+                    <a href="{% url 'reserva_list' %}" class="btn btn-light">Cancelar</a>
+                    <button type="submit" class="btn btn-primary px-4">
+                        <i data-lucide="save" class="me-1" style="width: 18px;"></i> Guardar Check-in
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const precios = {{ precios_json|safe }};
+    const habitacionSelect = document.querySelector('select[name="habitacion"]');
+    const fechaIngresoInput = document.querySelector('input[name="fecha_ingreso"]');
+    const fechaSalidaInput = document.querySelector('input[name="fecha_salida"]');
+    const totalInput = document.querySelector('input[name="total_hospedaje"]');
+
+    function calcularTotal() {
+        const habId = habitacionSelect.value;
+        const fechaIngreso = new Date(fechaIngresoInput.value);
+        const fechaSalida = new Date(fechaSalidaInput.value);
+
+        if (habId && fechaIngreso && fechaSalida && fechaSalida > fechaIngreso) {
+            const precioNoche = precios[habId];
+            const diffTime = Math.abs(fechaSalida - fechaIngreso);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+            
+            // Si la diferencia es menor a un día (ej: check-in y checkout el mismo día), cobrar al menos 1 noche
+            const noches = diffDays > 0 ? diffDays : 1;
+            totalInput.value = (noches * precioNoche).toFixed(2);
+        }
+    }
+
+    habitacionSelect.addEventListener('change', calcularTotal);
+    fechaIngresoInput.addEventListener('change', calcularTotal);
+    fechaSalidaInput.addEventListener('change', calcularTotal);
+
+    // Ejecutar al cargar por si vienen valores iniciales
+    window.addEventListener('load', calcularTotal);
+</script>
+{% endblock %}

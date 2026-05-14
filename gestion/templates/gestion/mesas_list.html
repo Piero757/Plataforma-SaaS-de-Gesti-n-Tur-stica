@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+
+{% block title %}Gestión de Mesas | TurismoERP{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h3 class="fw-bold mb-1">Gestión de Mesas</h3>
+        <p class="text-muted">Administra la configuración física de tu salón</p>
+    </div>
+    <a href="{% url 'mesa_create' %}" class="btn btn-primary d-flex align-items-center gap-2">
+        <i data-lucide="plus" style="width: 18px;"></i> Nueva Mesa
+    </a>
+</div>
+
+<div class="card border-0 shadow-sm p-4">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th class="ps-4">Número</th>
+                    <th>Capacidad</th>
+                    <th>Estado Actual</th>
+                    <th class="text-end pe-4">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for mesa in mesas %}
+                <tr>
+                    <td class="ps-4">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="bg-light rounded p-2">
+                                <i data-lucide="layout-grid" class="text-primary"></i>
+                            </div>
+                            <span class="fw-bold">Mesa {{ mesa.numero }}</span>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="badge bg-light-info text-info fs-6">
+                            <i data-lucide="users" style="width: 14px;" class="me-1"></i> {{ mesa.capacidad }} personas
+                        </span>
+                    </td>
+                    <td>
+                        {% if mesa.estado == 'DISPONIBLE' %}
+                        <span class="badge bg-light-success text-success">Disponible</span>
+                        {% elif mesa.estado == 'OCUPADA' %}
+                        <span class="badge bg-light-danger text-danger">Ocupada</span>
+                        {% else %}
+                        <span class="badge bg-light-warning text-warning">{{ mesa.estado }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end pe-4">
+                        <div class="d-flex justify-content-end gap-2">
+                            <a href="{% url 'mesa_update' mesa.pk %}" class="btn btn-sm btn-light-primary rounded-circle p-2" title="Editar">
+                                <i data-lucide="edit-2" style="width: 16px;"></i>
+                            </a>
+                            <button type="button" class="btn btn-sm btn-light-danger rounded-circle p-2" 
+                                    onclick="confirmDelete('{{ mesa.pk }}', '{{ mesa.numero }}')" title="Eliminar">
+                                <i data-lucide="trash-2" style="width: 16px;"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="text-center py-5 text-muted">No hay mesas registradas.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal de Confirmación -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">Confirmar Eliminación</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center py-4">
+                <i data-lucide="alert-triangle" class="text-danger mb-3" style="width: 48px; height: 48px;"></i>
+                <p class="mb-0">¿Estás seguro que deseas eliminar la <strong>Mesa <span id="mesaNumero"></span></strong>?</p>
+                <small class="text-muted">Esta acción no se puede deshacer.</small>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+                <form id="deleteForm" method="POST" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">Eliminar Mesa</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function confirmDelete(id, numero) {
+        document.getElementById('mesaNumero').textContent = numero;
+        document.getElementById('deleteForm').action = `/restaurante/mesas/eliminar/${id}/`;
+        new bootstrap.Modal(document.getElementById('deleteModal')).show();
+    }
+</script>
+{% endblock %}

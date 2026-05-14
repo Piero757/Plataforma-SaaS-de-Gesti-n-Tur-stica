@@ -46,13 +46,33 @@ class Producto(models.Model):
         ('RESTAURANTE', 'Restaurante'),
         ('OTROS', 'Otros'),
     ]
+    IMPUESTOS = [
+        ('IGV', 'IGV (18%)'),
+        ('EXONERADO', 'Exonerado'),
+        ('INAFECTO', 'Inafecto'),
+    ]
     codigo = models.CharField(max_length=50, unique=True)
     nombre = models.CharField(max_length=200)
     descripcion = models.TextField(blank=True, null=True)
     categoria = models.CharField(max_length=20, choices=CATEGORIAS, default='SOUVENIR')
+    
+    SUBCATEGORIAS_RESTAURANTE = [
+        ('ENTRADA', 'Entrada'),
+        ('PLATO_FONDO', 'Plato de Fondo'),
+        ('POSTRE', 'Postre'),
+        ('BEBIDA', 'Bebida'),
+        ('LICOR', 'Licor / Trago'),
+        ('OTRO', 'Otro'),
+    ]
+    subcategoria = models.CharField(max_length=100, choices=SUBCATEGORIAS_RESTAURANTE, default='OTRO', blank=True, null=True)
+    imagen = models.ImageField(upload_to='productos/', blank=True, null=True)
+    impuesto = models.CharField(max_length=20, choices=IMPUESTOS, default='IGV')
     precio_compra = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     precio_venta = models.DecimalField(max_digits=10, decimal_places=2)
+    precio_corporativo = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, verbose_name="Precio Corporativo")
     stock_minimo = models.PositiveIntegerField(default=5)
+    stock_ideal = models.PositiveIntegerField(default=0)
+    stock_alerta = models.PositiveIntegerField(default=0)
     activo = models.BooleanField(default=True)
     modulo = models.CharField(max_length=20, choices=MODULO_CHOICES, default='HOTEL')
 
@@ -95,6 +115,8 @@ class Venta(models.Model):
     estado_sunat = models.CharField(max_length=20, choices=ESTADO_SUNAT, default='PENDIENTE')
     observaciones = models.TextField(blank=True, null=True)
     modulo = models.CharField(max_length=20, choices=MODULO_CHOICES, default='HOTEL')
+    mesa = models.ForeignKey('Mesa', on_delete=models.SET_NULL, null=True, blank=True)
+    es_comanda = models.BooleanField(default=False, help_text="Si es True, es un pedido abierto en mesa")
 
     def __str__(self):
         return f"{self.tipo_comprobante} {self.serie}-{self.numero}"
@@ -110,15 +132,48 @@ class DetalleVenta(models.Model):
         return f"Detalle {self.venta.id} - {self.producto.nombre}"
 
 class Compra(models.Model):
+    TIPO_COMPROBANTE = [
+        ('BOLETA', 'Boleta'),
+        ('FACTURA', 'Factura'),
+        ('TICKET', 'Ticket'),
+        ('OTRO', 'Otro'),
+    ]
+    FORMA_PAGO = [
+        ('CONTADO', 'Contado'),
+        ('CREDITO', 'Crédito'),
+    ]
     proveedor = models.ForeignKey(Proveedor, on_delete=models.PROTECT)
     fecha = models.DateField()
-    tipo_comprobante = models.CharField(max_length=50) # Factura de proveedor
+    tipo_comprobante = models.CharField(max_length=50, choices=TIPO_COMPROBANTE, default='FACTURA')
     numero_comprobante = models.CharField(max_length=50)
     total = models.DecimalField(max_digits=10, decimal_places=2)
+    forma_pago = models.CharField(max_length=20, choices=FORMA_PAGO, default='CONTADO')
+    num_cuotas = models.PositiveIntegerField(default=1)
+    activo = models.BooleanField(default=True)
     modulo = models.CharField(max_length=20, choices=MODULO_CHOICES, default='HOTEL')
 
     def __str__(self):
         return f"Compra {self.numero_comprobante} - {self.proveedor.razon_social}"
+
+class DetalleCompra(models.Model):
+    compra = models.ForeignKey(Compra, on_delete=models.CASCADE, related_name='detalles')
+    producto = models.ForeignKey(Producto, on_delete=models.PROTECT)
+    cantidad = models.PositiveIntegerField()
+    precio_unitario = models.DecimalField(max_digits=10, decimal_places=2)
+    subtotal = models.DecimalField(max_digits=10, decimal_places=2)
+
+    def __str__(self):
+        return f"{self.producto.nombre} x {self.cantidad}"
+
+class CuotaCompra(models.Model):
+    compra = models.ForeignKey(Compra, on_delete=models.CASCADE, related_name='cuotas')
+    numero_cuota = models.PositiveIntegerField()
+    monto = models.DecimalField(max_digits=10, decimal_places=2)
+    fecha_vencimiento = models.DateField()
+    pagado = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"Cuota {self.numero_cuota} - {self.compra.numero_comprobante}"
 
 class RegistroServicio(models.Model):
     nombre_servicio = models.CharField(max_length=200)
@@ -144,6 +199,8 @@ class FacturaElectronica(models.Model):
 
 class ConfiguracionEmpresa(models.Model):
     # Datos Legales
+    nombre_sistema = models.CharField(max_length=100, default='TurismoERP')
+    logo = models.ImageField(upload_to='empresa/logos/', blank=True, null=True)
     ruc = models.CharField(max_length=11)
     razon_social = models.CharField(max_length=255)
     nombre_comercial = models.CharField(max_length=255, blank=True, null=True)
@@ -151,6 +208,28 @@ class ConfiguracionEmpresa(models.Model):
     departamento = models.CharField(max_length=50, default='AREQUIPA')
     provincia = models.CharField(max_length=50, default='AREQUIPA')
     distrito = models.CharField(max_length=50, default='AREQUIPA')
+    
+    # Preferencias de Sistema
+    TIPO_IMPRESION = [
+        ('A4', 'Impresora Estándar (A4)'),
+        ('TICKET_80', 'Ticketera Térmica (80mm)'),
+        ('TICKET_58', 'Ticketera Térmica (58mm)'),
+    ]
+    tipo_impresion = models.CharField(max_length=20, choices=TIPO_IMPRESION, default='A4')
+    formato_hotel = models.CharField(max_length=20, choices=TIPO_IMPRESION, default='A4')
+    formato_restaurante = models.CharField(max_length=20, choices=TIPO_IMPRESION, default='TICKET_80')
+    mensaje_pie_pagina = models.TextField(blank=True, null=True, help_text="Mensaje al final de los tickets")
+    imprimir_logo_ticket = models.BooleanField(default=True)
+    nombre_impresora_hotel = models.CharField(max_length=100, blank=True, null=True, help_text="Nombre de la impresora en Windows para el Hotel")
+    nombre_impresora_restaurante = models.CharField(max_length=100, blank=True, null=True, help_text="Nombre de la impresora en Windows para el Restaurante")
+    
+    FORMA_LOGO = [
+        ('RECTANGULAR', 'Rectangular / Original'),
+        ('CIRCULAR', 'Circular (Avatar)'),
+    ]
+    forma_logo = models.CharField(max_length=20, choices=FORMA_LOGO, default='RECTANGULAR')
+    
+    ruta_referencia = models.CharField(max_length=255, blank=True, null=True, help_text="Ruta local de instalación o backups")
     
     # Credenciales SUNAT
     usuario_sol = models.CharField(max_length=50, default='MODDATOS')
@@ -171,3 +250,78 @@ class ConfiguracionEmpresa(models.Model):
 
     def __str__(self):
         return f"{self.ruc} - {self.razon_social}"
+
+class Habitacion(models.Model):
+    ESTADO_CHOICES = [
+        ('DISPONIBLE', 'Disponible'),
+        ('OCUPADA', 'Ocupada'),
+        ('LIMPIEZA', 'En Limpieza'),
+        ('MANTENIMIENTO', 'Mantenimiento'),
+    ]
+    TIPO_CHOICES = [
+        ('SIMPLE', 'Simple'),
+        ('DOBLE', 'Doble'),
+        ('MATRIMONIAL', 'Matrimonial'),
+        ('TRIPLE', 'Triple'),
+        ('SUITE', 'Suite'),
+    ]
+    numero = models.CharField(max_length=10, unique=True)
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, default='SIMPLE')
+    precio_noche = models.DecimalField(max_digits=10, decimal_places=2)
+    precio_noche_corporativo = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='DISPONIBLE')
+    imagen = models.ImageField(upload_to='habitaciones/', blank=True, null=True)
+    descripcion = models.TextField(blank=True, null=True)
+    activo = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"Hab. {self.numero} ({self.get_tipo_display()})"
+
+class Mesa(models.Model):
+    ESTADO_CHOICES = [
+        ('DISPONIBLE', 'Disponible'),
+        ('OCUPADA', 'Ocupada'),
+        ('RESERVADA', 'Reservada'),
+        ('LIMPIEZA', 'En Limpieza'),
+    ]
+    numero = models.CharField(max_length=10, unique=True)
+    capacidad = models.PositiveIntegerField(default=4)
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='DISPONIBLE')
+    posicion_x = models.IntegerField(default=0, help_text="Para el mapa visual")
+    posicion_y = models.IntegerField(default=0, help_text="Para el mapa visual")
+
+    def __str__(self):
+        return f"Mesa {self.numero} ({self.capacidad} pers.)"
+
+class Reserva(models.Model):
+    ESTADO_RESERVA = [
+        ('PENDIENTE', 'Pendiente'),
+        ('CHECKIN', 'En Hospedaje'),
+        ('CHECKOUT', 'Finalizada (Pagada)'),
+        ('CANCELADA', 'Cancelada'),
+    ]
+    cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE)
+    habitacion = models.ForeignKey(Habitacion, on_delete=models.CASCADE)
+    fecha_ingreso = models.DateTimeField()
+    fecha_salida = models.DateTimeField()
+    estado = models.CharField(max_length=20, choices=ESTADO_RESERVA, default='PENDIENTE')
+    total_hospedaje = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    adelanto = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    observaciones = models.TextField(blank=True, null=True)
+    activo = models.BooleanField(default=True)
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Reserva {self.id} - {self.cliente.nombre_razon_social}"
+
+class PedidoHabitacion(models.Model):
+    reserva = models.ForeignKey(Reserva, related_name='pedidos', on_delete=models.CASCADE)
+    producto = models.ForeignKey(Producto, on_delete=models.PROTECT)
+    cantidad = models.PositiveIntegerField(default=1)
+    precio_unitario = models.DecimalField(max_digits=10, decimal_places=2)
+    subtotal = models.DecimalField(max_digits=10, decimal_places=2)
+    fecha_pedido = models.DateTimeField(auto_now_add=True)
+    pagado = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"Pedido {self.id} - Hab. {self.reserva.habitacion.numero}"

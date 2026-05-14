@@ -47,6 +47,10 @@ urlpatterns = [
     # Compras
     path('compras/', views.compras_list, name='compras_list'),
     path('compras/nuevo/', views.compra_create, name='compra_create'),
+    path('compras/detalle/<int:pk>/', views.compra_detalle, name='compra_detalle'),
+    path('compras/eliminar/<int:pk>/', views.compra_delete, name='compra_delete'),
+    path('compras/historial/', views.compras_historial, name='compras_historial'),
+    path('compras/restaurar/<int:pk>/', views.compra_restore, name='compra_restore'),
     
     # Servicios
     path('servicios/', views.servicios_list, name='servicios_list'),
@@ -62,4 +66,33 @@ urlpatterns = [
     path('reportes/', views.reportes_view, name='reportes'),
     path('configuracion/', views.configuracion_empresa, name='configuracion_empresa'),
     path('reportes/pdf/', views.reporte_general_pdf, name='reporte_general_pdf'),
+    
+    # Hotel Management
+    path('habitaciones/', views.habitaciones_list, name='habitaciones_list'),
+    path('habitaciones/nuevo/', views.habitacion_create, name='habitacion_create'),
+    path('habitaciones/editar/<int:pk>/', views.habitacion_update, name='habitacion_update'),
+    path('habitaciones/eliminar/<int:pk>/', views.habitacion_delete, name='habitacion_delete'),
+    path('habitaciones/historial/', views.habitaciones_historial, name='habitaciones_historial'),
+    path('habitaciones/restaurar/<int:pk>/', views.habitacion_restore, name='habitacion_restore'),
+    path('reservas/', views.reserva_list, name='reserva_list'),
+    path('reservas/nuevo/', views.reserva_create, name='reserva_create'),
+    path('reservas/pedido/<int:reserva_id>/', views.pedido_habitacion_create, name='pedido_habitacion_create'),
+    path('reservas/checkout/<int:reserva_id>/', views.reserva_checkout, name='reserva_checkout'),
+    path('reservas/detalle/<int:pk>/', views.reserva_detalle, name='reserva_detalle'),
+    path('reservas/finalizar/<int:pk>/', views.reserva_finalizar_temprano, name='reserva_finalizar_temprano'),
+    path('reservas/eliminar/<int:pk>/', views.reserva_delete, name='reserva_delete'),
+    path('reservas/historial/', views.reservas_historial, name='reservas_historial'),
+    path('reservas/restaurar/<int:pk>/', views.reserva_restore, name='reserva_restore'),
+
+    # Restaurante Management
+    path('restaurante/mesa/<int:mesa_id>/', views.mesa_detalle, name='mesa_detalle'),
+    path('restaurante/mesa/abrir/<int:mesa_id>/', views.mesa_abrir, name='mesa_abrir'),
+    path('restaurante/mesa/cerrar/<int:venta_id>/', views.mesa_cerrar, name='mesa_cerrar'),
+    path('restaurante/mesa/agregar-item/<int:venta_id>/', views.mesa_agregar_item, name='mesa_agregar_item'),
+    path('restaurante/mesas/', views.mesas_list, name='mesas_list'),
+    path('restaurante/mesas/nuevo/', views.mesa_create, name='mesa_create'),
+    path('restaurante/mesas/editar/<int:pk>/', views.mesa_update, name='mesa_update'),
+    path('restaurante/mesas/eliminar/<int:pk>/', views.mesa_delete, name='mesa_delete'),
+    path('restaurante/carta/', views.carta_lista, name='carta_lista'),
+    path('restaurante/ticket/<int:pk>/', views.ticket_print, name='ticket_print'),
 ]

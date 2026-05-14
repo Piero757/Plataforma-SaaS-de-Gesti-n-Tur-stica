@@ -63,6 +63,7 @@
                     <th>Contacto</th>
                     <th>Teléfono</th>
                     <th>Email</th>
+                    <th class="text-center">Visitas</th>
                     <th>Acciones</th>
                 </tr>
             </thead>
@@ -74,6 +75,11 @@
                     <td>{{ cliente.persona_contacto|default:"-" }}</td>
                     <td>{{ cliente.telefono|default:"-" }}</td>
                     <td>{{ cliente.email|default:"-" }}</td>
+                    <td class="text-center">
+                        <span class="badge {% if cliente.num_hospedajes > 0 %}bg-success{% else %}bg-secondary{% endif %} rounded-pill">
+                            {{ cliente.num_hospedajes }} hospedajes
+                        </span>
+                    </td>
                     <td>
                         <div class="d-flex gap-2">
                             {% if not es_historial %}

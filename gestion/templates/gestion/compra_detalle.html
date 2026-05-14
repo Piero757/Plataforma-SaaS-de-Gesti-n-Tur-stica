@@ -1,0 +1,112 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ titulo }} | TurismoERP{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div class="d-flex align-items-center gap-3">
+                <a href="{% url 'compras_list' %}" class="btn btn-light-primary btn-sm">
+                    <i data-lucide="arrow-left" style="width: 18px;"></i>
+                </a>
+                <h3 class="fw-bold m-0">{{ titulo }}</h3>
+            </div>
+            <div class="badge {% if compra.forma_pago == 'CONTADO' %}bg-light-success{% else %}bg-light-warning{% endif %} p-2">
+                <i data-lucide="credit-card" class="me-1" style="width: 16px;"></i>
+                Forma de Pago: {{ compra.get_forma_pago_display }}
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <!-- Info Proveedor -->
+            <div class="col-lg-4">
+                <div class="card p-4 shadow-sm border-0">
+                    <h5 class="fw-bold mb-3">Datos del Proveedor</h5>
+                    <div class="mb-4">
+                        <div class="h4 fw-bold text-primary mb-1">{{ compra.proveedor.razon_social }}</div>
+                        <div class="text-muted">RUC: {{ compra.proveedor.ruc }}</div>
+                    </div>
+                    <hr class="text-muted opacity-25">
+                    <div class="mb-2">
+                        <label class="small fw-bold text-muted">Documento:</label>
+                        <div>{{ compra.get_tipo_comprobante_display }} #{{ compra.numero_comprobante }}</div>
+                    </div>
+                    <div class="mb-0">
+                        <label class="small fw-bold text-muted">Fecha de Compra:</label>
+                        <div>{{ compra.fecha|date:"d/m/Y" }}</div>
+                    </div>
+                </div>
+
+                {% if compra.forma_pago == 'CREDITO' %}
+                <div class="card p-4 shadow-sm border-0 mt-4">
+                    <h5 class="fw-bold mb-3">Cronograma de Pagos</h5>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Cuota</th>
+                                    <th>Vence</th>
+                                    <th class="text-end">Monto</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for cuota in cuotas %}
+                                <tr>
+                                    <td>{{ cuota.numero_cuota }}</td>
+                                    <td>{{ cuota.fecha_vencimiento|date:"d/m/Y" }}</td>
+                                    <td class="text-end fw-bold">S/ {{ cuota.monto }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Items -->
+            <div class="col-lg-8">
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-white py-3">
+                        <h5 class="fw-bold mb-0">Artículos Comprados</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="bg-light text-muted small">
+                                    <tr>
+                                        <th class="ps-4">Descripción</th>
+                                        <th>Cant.</th>
+                                        <th class="text-end">Precio Unit.</th>
+                                        <th class="text-end pe-4">Subtotal</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in detalles %}
+                                    <tr>
+                                        <td class="ps-4">
+                                            <div class="fw-bold">{{ item.producto.nombre }}</div>
+                                            <small class="text-muted">{{ item.producto.codigo }}</small>
+                                        </td>
+                                        <td>{{ item.cantidad }}</td>
+                                        <td class="text-end">S/ {{ item.precio_unitario }}</td>
+                                        <td class="text-end pe-4 fw-bold">S/ {{ item.subtotal }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                                <tfoot class="bg-light">
+                                    <tr>
+                                        <td colspan="3" class="text-end fw-bold">TOTAL PAGADO:</td>
+                                        <td class="text-end pe-4 h4 fw-bold text-primary">S/ {{ compra.total }}</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

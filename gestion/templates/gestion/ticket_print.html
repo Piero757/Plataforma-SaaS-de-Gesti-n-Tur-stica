@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        {% if config.formato_restaurante == 'TICKET_58' %}
+        @page { size: 58mm 200mm; margin: 0; }
+        body { width: 48mm; font-size: 10px; }
+        {% else %}
+        @page { size: 80mm 200mm; margin: 0; }
+        body { width: 72mm; font-size: 12px; }
+        {% endif %}
+        
+        body { 
+            font-family: 'Courier New', Courier, monospace; 
+            margin: 0 auto; 
+            padding: 5mm; 
+            line-height: 1.2;
+        }
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .bold { font-weight: bold; }
+        .divider { border-top: 1px dashed #000; margin: 5px 0; }
+        .header { margin-bottom: 10px; }
+        .logo-container { margin-bottom: 10px; }
+        .info { margin-bottom: 10px; font-size: 11px; }
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; border-bottom: 1px solid #000; }
+        .total-section { margin-top: 10px; }
+        .footer { margin-top: 20px; font-size: 10px; }
+    </style>
+</head>
+<body onload="window.print();">
+    {% if config.imprimir_logo_ticket and config.logo %}
+    <div class="logo-container text-center">
+        <img src="{{ config.logo.url }}" style="max-height: 50px; {% if config.forma_logo == 'CIRCULAR' %}border-radius: 50%;{% endif %}">
+    </div>
+    {% endif %}
+
+    <div class="header text-center">
+        <h3 style="margin: 0; text-transform: uppercase;">{{ config.nombre_comercial }}</h3>
+        <p style="margin: 0;">{{ config.razon_social }}</p>
+        <p style="margin: 0;">RUC: {{ config.ruc }}</p>
+        <p style="margin: 0;">{{ config.direccion }}</p>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="info">
+        <p style="margin: 2px 0;"><strong>DOC:</strong> TICKET VENTA</p>
+        <p style="margin: 2px 0;"><strong>Nro:</strong> {{ venta.serie }}-{{ venta.numero|stringformat:"06d" }}</p>
+        <p style="margin: 2px 0;"><strong>FECHA:</strong> {{ venta.fecha|date:"d/m/Y H:i" }}</p>
+        <p style="margin: 2px 0;"><strong>MESA:</strong> {{ venta.mesa.numero|default:"Llevar" }}</p>
+        <p style="margin: 2px 0;"><strong>CLIENTE:</strong> {{ venta.cliente.nombre_razon_social|truncatechars:25 }}</p>
+    </div>
+
+    <div class="divider"></div>
+
+    <table>
+        <thead>
+            <tr>
+                <th width="15%">Cant</th>
+                <th width="55%">Desc.</th>
+                <th width="30%" class="text-right">Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in venta.detalles.all %}
+            <tr>
+                <td style="vertical-align: top;">{{ item.cantidad }}</td>
+                <td>{{ item.producto.nombre|truncatechars:20 }}</td>
+                <td class="text-right" style="vertical-align: top;">{{ item.subtotal }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="divider"></div>
+
+    <div class="total-section">
+        <table style="width: 100%;">
+            <tr>
+                <td class="bold">TOTAL A PAGAR:</td>
+                <td class="text-right bold" style="font-size: 1.2em;">S/ {{ venta.total }}</td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="footer text-center">
+        <p class="bold">{{ config.mensaje_pie_pagina|default:"¡Gracias por su visita!" }}</p>
+        <p>Representación impresa de un Ticket de Venta.</p>
+        <p>Software: {{ config.nombre_sistema }}</p>
+    </div>
+</body>
+</html>

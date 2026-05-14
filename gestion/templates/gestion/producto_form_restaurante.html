@@ -1,0 +1,147 @@
+{% extends 'base.html' %}
+
+{% block title %}Nuevo Plato/Bebida | TurismoERP{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="d-flex align-items-center gap-3 mb-4">
+            <a href="{% url 'carta_lista' %}" class="btn btn-light-primary btn-sm rounded-circle">
+                <i data-lucide="arrow-left" style="width: 18px;"></i>
+            </a>
+            <h3 class="fw-bold m-0">Añadir a la Carta</h3>
+        </div>
+
+        <div class="card border-0 shadow-lg p-0 overflow-hidden">
+            <form method="POST" enctype="multipart/form-data">
+                {% csrf_token %}
+                
+                <!-- Área de Foto -->
+                <div class="bg-light p-4 text-center border-bottom position-relative" style="min-height: 200px;">
+                    <div id="image-preview" class="{% if not form.instance.imagen %}d-none{% endif %} w-100 h-100 position-absolute top-0 start-0" style="z-index: 1;">
+                        <img src="{% if form.instance.imagen %}{{ form.instance.imagen.url }}{% endif %}" class="w-100 h-100" style="object-fit: cover;">
+                    </div>
+                    
+                    <div id="upload-placeholder" class="{% if form.instance.imagen %}d-none{% endif %} py-5" style="z-index: 2; position: relative;">
+                        <i data-lucide="camera" class="text-muted mb-2" style="width: 48px; height: 48px;"></i>
+                        <h6 class="text-muted">Sube una foto deliciosa del plato</h6>
+                        <label for="id_imagen" class="btn btn-sm btn-outline-primary mt-2">Seleccionar Imagen</label>
+                        <div style="display:none;">{{ form.imagen }}</div>
+                    </div>
+                    
+                    <button type="button" id="remove-img" class="btn btn-danger btn-sm rounded-circle position-absolute top-0 end-0 m-3 {% if not form.instance.imagen %}d-none{% endif %}" style="z-index: 3;">
+                        <i data-lucide="x" style="width: 16px;"></i>
+                    </button>
+                </div>
+
+                <div class="p-4">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Nombre del Plato / Bebida</label>
+                            {{ form.nombre }}
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Categoría</label>
+                            {{ form.subcategoria }}
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Precio de Venta (S/)</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light fw-bold">S/</span>
+                                {{ form.precio_venta }}
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold text-primary">Stock Actual</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-soft-primary border-end-0"><i data-lucide="box" style="width: 16px;"></i></span>
+                                {{ form.stock }}
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Stock Ideal</label>
+                            {{ form.stock_ideal }}
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Stock Mínimo</label>
+                            {{ form.stock_minimo }}
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Descripción (Ingredientes / Detalles)</label>
+                            {{ form.descripcion }}
+                        </div>
+
+                        <!-- Campos ocultos necesarios -->
+                        <div style="display:none;">
+                            {{ form.codigo }}
+                            {{ form.categoria }}
+                            {{ form.impuesto }}
+                            {{ form.precio_compra }}
+                            {{ form.precio_corporativo }}
+                            {{ form.stock_alerta }}
+                        </div>
+                    </div>
+
+                    <div class="d-grid mt-4 pt-3">
+                        <button type="submit" class="btn btn-primary btn-lg fw-bold shadow-sm d-flex align-items-center justify-content-center gap-2">
+                            <i data-lucide="plus-circle" style="width: 20px;"></i> Guardar en la Carta
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const fileInput = document.getElementById('id_imagen');
+        const preview = document.getElementById('image-preview');
+        const placeholder = document.getElementById('upload-placeholder');
+        const removeBtn = document.getElementById('remove-img');
+        const previewImg = preview.querySelector('img');
+
+        fileInput.addEventListener('change', function() {
+            const file = this.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    previewImg.src = e.target.result;
+                    preview.classList.remove('d-none');
+                    placeholder.classList.add('d-none');
+                    removeBtn.classList.remove('d-none');
+                }
+                reader.readAsDataURL(file);
+            }
+        });
+
+        removeBtn.addEventListener('click', function() {
+            fileInput.value = '';
+            preview.classList.add('d-none');
+            placeholder.classList.remove('d-none');
+            this.classList.add('d-none');
+        });
+        
+        // Auto-generar código si está vacío
+        const nombreInput = document.getElementById('id_nombre');
+        const codigoInput = document.getElementById('id_codigo');
+        if (nombreInput && !codigoInput.value) {
+            nombreInput.addEventListener('blur', function() {
+                if (this.value && !codigoInput.value) {
+                    codigoInput.value = 'RST-' + Math.floor(Math.random() * 10000);
+                }
+            });
+        }
+        
+        // Forzar categoría Restaurante
+        const catSelect = document.getElementById('id_categoria');
+        if (catSelect) catSelect.value = 'RESTAURANTE';
+    });
+</script>
+{% endblock %}

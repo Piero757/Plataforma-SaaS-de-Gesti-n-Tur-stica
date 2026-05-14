@@ -1,0 +1,236 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ titulo }} | TurismoERP{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex align-items-center gap-3 mb-4">
+            <a href="{% url 'compras_list' %}" class="btn btn-light-primary btn-sm">
+                <i data-lucide="arrow-left" style="width: 18px;"></i>
+            </a>
+            <h3 class="fw-bold m-0">{{ titulo }}</h3>
+        </div>
+
+        <form method="post" id="compraForm">
+            {% csrf_token %}
+            <div class="row g-4">
+                <!-- Cabecera de Compra -->
+                <div class="col-lg-4">
+                    <div class="card p-4 shadow-sm border-0 h-100">
+                        <h5 class="fw-bold mb-3">Información General</h5>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-muted">Proveedor</label>
+                            {{ form.proveedor }}
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-6">
+                                <label class="form-label small fw-bold text-muted">Fecha</label>
+                                {{ form.fecha }}
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small fw-bold text-muted">Comprobante</label>
+                                {{ form.tipo_comprobante }}
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-muted">N° Comprobante</label>
+                            {{ form.numero_comprobante }}
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-muted">Forma de Pago</label>
+                            {{ form.forma_pago }}
+                        </div>
+                        <div id="section_cuotas" style="display: none;">
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold text-muted">N° de Cuotas</label>
+                                <input type="number" name="num_cuotas" id="id_num_cuotas" class="form-control" value="1" min="1">
+                            </div>
+                            <div id="container_cuotas">
+                                <!-- Cuotas se generan aquí -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Detalle de Items -->
+                <div class="col-lg-8">
+                    <div class="card shadow-sm border-0 h-100">
+                        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                            <h5 class="fw-bold mb-0">Detalle de Productos / Items</h5>
+                            <button type="button" class="btn btn-sm btn-outline-primary" id="btn_add_item">
+                                <i data-lucide="plus"></i> Agregar Item
+                            </button>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle mb-0" id="table_items">
+                                    <thead class="bg-light">
+                                        <tr>
+                                            <th class="ps-4" style="width: 40%;">Producto</th>
+                                            <th style="width: 15%;">Cantidad</th>
+                                            <th style="width: 20%;">Precio Unit.</th>
+                                            <th style="width: 20%;">Subtotal</th>
+                                            <th class="text-end pe-4" style="width: 5%;"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Items se agregan aquí -->
+                                    </tbody>
+                                    <tfoot class="bg-light fw-bold">
+                                        <tr>
+                                            <td colspan="3" class="text-end">TOTAL:</td>
+                                            <td class="text-primary h5 mb-0" id="total_display">S/ 0.00</td>
+                                            <td></td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                            <input type="hidden" name="total" id="id_total" value="0.00">
+                        </div>
+                        <div class="card-footer bg-white py-3 d-flex justify-content-end">
+                            <button type="submit" class="btn btn-primary px-5 py-2">
+                                <i data-lucide="save" class="me-1"></i> Guardar Compra
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Template para nueva fila de item -->
+<template id="row_template">
+    <tr>
+        <td class="ps-4">
+            <select name="producto[]" class="form-select select-product" required>
+                <option value="">Seleccione producto...</option>
+                {% for p in productos %}
+                <option value="{{ p.id }}" data-precio="{{ p.precio_compra }}">{{ p.nombre }}</option>
+                {% endfor %}
+            </select>
+        </td>
+        <td>
+            <input type="number" name="cantidad[]" class="form-control input-qty" value="1" min="1" required>
+        </td>
+        <td>
+            <input type="number" name="precio[]" class="form-control input-price" step="0.01" required>
+        </td>
+        <td class="fw-bold text-dark span-subtotal">S/ 0.00</td>
+        <td class="text-end pe-4">
+            <button type="button" class="btn btn-sm btn-light-danger btn-remove"><i data-lucide="trash-2" style="width: 16px;"></i></button>
+        </td>
+    </tr>
+</template>
+
+<!-- Template para cuota -->
+<template id="cuota_template">
+    <div class="cuota-item mb-2 p-2 border rounded bg-light">
+        <div class="small fw-bold mb-1">Cuota #<span class="cuota-num"></span></div>
+        <div class="row g-2">
+            <div class="col-6">
+                <input type="number" name="monto_cuota[]" class="form-control form-control-sm input-monto-cuota" step="0.01" required>
+            </div>
+            <div class="col-6">
+                <input type="date" name="fecha_cuota[]" class="form-control form-control-sm" required>
+            </div>
+        </div>
+    </div>
+</template>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const btnAddItem = document.getElementById('btn_add_item');
+    const tableItems = document.getElementById('table_items').getElementsByTagName('tbody')[0];
+    const rowTemplate = document.getElementById('row_template');
+    const totalDisplay = document.getElementById('total_display');
+    const totalInput = document.getElementById('id_total');
+    const formaPagoSelect = document.getElementById('id_forma_pago');
+    const sectionCuotas = document.getElementById('section_cuotas');
+    const numCuotasInput = document.getElementById('id_num_cuotas');
+    const containerCuotas = document.getElementById('container_cuotas');
+    const cuotaTemplate = document.getElementById('cuota_template');
+
+    function calculateRow(row) {
+        const qty = parseFloat(row.querySelector('.input-qty').value) || 0;
+        const price = parseFloat(row.querySelector('.input-price').value) || 0;
+        const subtotal = qty * price;
+        row.querySelector('.span-subtotal').innerText = `S/ ${subtotal.toFixed(2)}`;
+        calculateTotal();
+    }
+
+    function calculateTotal() {
+        let total = 0;
+        document.querySelectorAll('.span-subtotal').forEach(span => {
+            total += parseFloat(span.innerText.replace('S/ ', '')) || 0;
+        });
+        totalDisplay.innerText = `S/ ${total.toFixed(2)}`;
+        totalInput.value = total.toFixed(2);
+        
+        if (formaPagoSelect.value === 'CREDITO') {
+            recalculateCuotas();
+        }
+    }
+
+    function addItem() {
+        const clone = rowTemplate.content.cloneNode(true);
+        const row = clone.querySelector('tr');
+        
+        row.querySelector('.select-product').addEventListener('change', function() {
+            const selected = this.options[this.selectedIndex];
+            const precio = selected.dataset.precio;
+            row.querySelector('.input-price').value = precio;
+            calculateRow(row);
+        });
+
+        row.querySelector('.input-qty').addEventListener('input', () => calculateRow(row));
+        row.querySelector('.input-price').addEventListener('input', () => calculateRow(row));
+        row.querySelector('.btn-remove').addEventListener('click', () => {
+            row.remove();
+            calculateTotal();
+            lucide.createIcons();
+        });
+
+        tableItems.appendChild(row);
+        lucide.createIcons();
+    }
+
+    function recalculateCuotas() {
+        const total = parseFloat(totalInput.value) || 0;
+        const n = parseInt(numCuotasInput.value) || 1;
+        const montoCuota = (total / n).toFixed(2);
+        
+        containerCuotas.innerHTML = '';
+        for (let i = 1; i <= n; i++) {
+            const clone = cuotaTemplate.content.cloneNode(true);
+            clone.querySelector('.cuota-num').innerText = i;
+            clone.querySelector('.input-monto-cuota').value = montoCuota;
+            
+            // Sugerir fechas (30 días entre cuotas)
+            const date = new Date();
+            date.setDate(date.getDate() + (30 * i));
+            clone.querySelector('input[type="date"]').value = date.toISOString().split('T')[0];
+            
+            containerCuotas.appendChild(clone);
+        }
+    }
+
+    formaPagoSelect.addEventListener('change', function() {
+        if (this.value === 'CREDITO') {
+            sectionCuotas.style.display = 'block';
+            recalculateCuotas();
+        } else {
+            sectionCuotas.style.display = 'none';
+        }
+    });
+
+    numCuotasInput.addEventListener('input', recalculateCuotas);
+
+    btnAddItem.addEventListener('click', addItem);
+
+    // Agregar un item inicial
+    addItem();
+</script>
+{% endblock %}

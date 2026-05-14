@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+
+{% block title %}Carta / Menú | TurismoERP{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h3 class="fw-bold mb-1">Carta / Menú</h3>
+        <p class="text-muted">Administra los platos y bebidas que ofreces en el salón</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'inventario_list' %}" class="btn btn-outline-secondary">
+            <i data-lucide="package" style="width: 18px;"></i> Ver en Inventario
+        </a>
+        <a href="{% url 'producto_create' %}?categoria=RESTAURANTE" class="btn btn-primary d-flex align-items-center gap-2">
+            <i data-lucide="plus" style="width: 18px;"></i> Nuevo Plato/Bebida
+        </a>
+    </div>
+</div>
+
+{% for cat_nombre, platos in categorias.items %}
+<div class="mb-5">
+    <div class="d-flex align-items-center gap-2 mb-4">
+        <div class="bg-primary rounded-circle" style="width: 12px; height: 12px;"></div>
+        <h4 class="fw-bold m-0 text-uppercase letter-spacing-1">{{ cat_nombre }}</h4>
+        <div class="flex-grow-1 border-bottom border-dashed ms-3" style="opacity: 0.2;"></div>
+    </div>
+
+    <div class="row g-4">
+        {% for plato in platos %}
+        <div class="col-md-4 col-lg-3">
+            <div class="card h-100 border-0 shadow-sm transition-hover overflow-hidden">
+                <div class="position-relative">
+                    {% if plato.imagen %}
+                    <img src="{{ plato.imagen.url }}" class="card-img-top" style="height: 180px; object-fit: cover;" alt="{{ plato.nombre }}">
+                    {% else %}
+                    <div class="bg-light d-flex align-items-center justify-content-center" style="height: 180px;">
+                        <i data-lucide="utensils" class="text-muted" style="width: 48px; height: 48px;"></i>
+                    </div>
+                    {% endif %}
+                    <div class="position-absolute top-0 end-0 p-2">
+                        <span class="badge {% if plato.activo %}bg-success{% else %}bg-danger{% endif %} shadow-sm">
+                            {% if plato.activo %}Disponible{% else %}Agotado{% endif %}
+                        </span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <h6 class="fw-bold mb-1">{{ plato.nombre }}</h6>
+                    <p class="text-muted small mb-3 text-truncate">{{ plato.descripcion|default:"Sin descripción" }}</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="fw-bold text-primary fs-5">S/ {{ plato.precio_venta }}</span>
+                        <div class="d-flex gap-1">
+                            <a href="{% url 'producto_update' plato.pk %}" class="btn btn-sm btn-light-primary rounded-circle p-2">
+                                <i data-lucide="edit-2" style="width: 14px;"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% empty %}
+<div class="card p-5 text-center border-dashed">
+    <i data-lucide="book-open" class="text-muted mb-3 mx-auto" style="width: 48px; height: 48px;"></i>
+    <h4>No hay platos registrados</h4>
+    <p class="text-muted">Empieza registrando tu primer plato o bebida para el restaurante.</p>
+    <a href="{% url 'producto_create' %}?categoria=RESTAURANTE" class="btn btn-primary mt-3">Registrar Primer Plato</a>
+</div>
+{% endfor %}
+
+<style>
+    .letter-spacing-1 { letter-spacing: 2px; }
+    .transition-hover { transition: transform 0.2s; }
+    .transition-hover:hover { transform: translateY(-5px); }
+</style>
+{% endblock %}

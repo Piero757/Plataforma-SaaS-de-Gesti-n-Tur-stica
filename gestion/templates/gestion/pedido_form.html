@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ titulo }} | TurismoERP{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="d-flex align-items-center gap-3 mb-4">
+            <a href="{% url 'reserva_detalle' reserva.id %}" class="btn btn-light-primary btn-sm">
+                <i data-lucide="arrow-left" style="width: 18px;"></i>
+            </a>
+            <h3 class="fw-bold m-0">{{ titulo }}</h3>
+        </div>
+
+        <div class="card p-4 shadow-sm border-0">
+            <div class="mb-4">
+                <h5 class="fw-bold mb-1">Registro de Consumo</h5>
+                <p class="text-muted small">Selecciona el producto y la cantidad para cargar a la habitación.</p>
+            </div>
+
+            <form method="post">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label class="form-label fw-bold small text-muted">Producto / Servicio</label>
+                    {{ form.producto }}
+                    {% if form.producto.errors %}<div class="text-danger small">{{ form.producto.errors }}</div>{% endif %}
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold small text-muted">Cantidad</label>
+                        {{ form.cantidad }}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold small text-muted">Precio Unitario (S/)</label>
+                        {{ form.precio_unitario }}
+                    </div>
+                </div>
+
+                <div class="mt-4 p-3 bg-light rounded d-flex justify-content-between align-items-center">
+                    <span class="fw-bold">Subtotal estimado:</span>
+                    <span class="h4 fw-bold text-primary mb-0" id="subtotalDisplay">S/ 0.00</span>
+                </div>
+                
+                <hr class="my-4 text-muted opacity-25">
+                
+                <div class="d-flex justify-content-end gap-2">
+                    <a href="{% url 'reserva_detalle' reserva.id %}" class="btn btn-light">Cancelar</a>
+                    <button type="submit" class="btn btn-primary px-4">
+                        <i data-lucide="plus" class="me-1" style="width: 18px;"></i> Cargar Pedido
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const precios = {{ precios_json|safe }};
+    const productoSelect = document.querySelector('select[name="producto"]');
+    const cantidadInput = document.querySelector('input[name="cantidad"]');
+    const precioInput = document.querySelector('input[name="precio_unitario"]');
+    const subtotalDisplay = document.getElementById('subtotalDisplay');
+
+    function actualizarPrecio() {
+        const prodId = productoSelect.value;
+        if (prodId && precios[prodId]) {
+            precioInput.value = precios[prodId].toFixed(2);
+            calcularSubtotal();
+        }
+    }
+
+    function calcularSubtotal() {
+        const cant = parseFloat(cantidadInput.value) || 0;
+        const prec = parseFloat(precioInput.value) || 0;
+        const subtotal = cant * prec;
+        subtotalDisplay.innerText = `S/ ${subtotal.toFixed(2)}`;
+    }
+
+    productoSelect.addEventListener('change', actualizarPrecio);
+    cantidadInput.addEventListener('input', calcularSubtotal);
+    precioInput.addEventListener('input', calcularSubtotal);
+
+    // Inicializar
+    if (productoSelect.value) {
+        actualizarPrecio();
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,152 @@
+{% extends 'base.html' %}
+
+{% block title %}Mesa {{ mesa.numero }} | TurismoERP{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <!-- Comanda / Pedido de la Mesa -->
+    <div class="col-lg-7">
+        <div class="d-flex align-items-center gap-3 mb-4">
+            <a href="{% url 'restaurante' %}" class="btn btn-light-primary btn-sm">
+                <i data-lucide="arrow-left" style="width: 18px;"></i>
+            </a>
+            <h3 class="fw-bold m-0">Comanda: Mesa {{ mesa.numero }}</h3>
+            <span class="badge {% if mesa.estado == 'DISPONIBLE' %}bg-success{% else %}bg-danger{% endif %}">{{ mesa.estado }}</span>
+        </div>
+
+        {% if comanda %}
+        <div class="card border-0 shadow-sm overflow-hidden mb-4">
+            <div class="card-header bg-white p-4 border-bottom border-dashed">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="fw-bold mb-1">Pedido #{{ comanda.id }}</h5>
+                        <p class="text-muted small m-0">Iniciado a las {{ comanda.fecha|date:"H:i" }}</p>
+                    </div>
+                    <div class="text-end">
+                        <h2 class="fw-bold text-primary m-0">S/ {{ comanda.total|floatformat:2 }}</h2>
+                        <small class="text-muted">Total acumulado</small>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle m-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-4">Producto</th>
+                                <th class="text-center">Cant.</th>
+                                <th class="text-end">P. Unit</th>
+                                <th class="text-end pe-4">Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for detalle in comanda.detalles.all %}
+                            <tr>
+                                <td class="ps-4 fw-semibold">{{ detalle.producto.nombre }}</td>
+                                <td class="text-center">
+                                    <span class="badge bg-light-primary text-primary fs-6">{{ detalle.cantidad }}</span>
+                                </td>
+                                <td class="text-end">S/ {{ detalle.precio_unitario }}</td>
+                                <td class="text-end pe-4 fw-bold">S/ {{ detalle.subtotal }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center py-5 text-muted">
+                                    La mesa está abierta pero aún no hay pedidos.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card-footer bg-light p-4">
+                <form action="{% url 'mesa_cerrar' comanda.id %}" method="POST" class="row g-2">
+                    {% csrf_token %}
+                    <div class="col-md-6">
+                        <select name="tipo_comprobante" class="form-select">
+                            <option value="BOLETA">Boleta de Venta</option>
+                            <option value="FACTURA">Factura</option>
+                            <option value="TICKET">Ticket simple</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <button type="submit" class="btn btn-primary w-100 d-flex align-items-center justify-content-center gap-2">
+                            <i data-lucide="check-circle" style="width: 18px;"></i> Cerrar Cuenta y Cobrar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        {% else %}
+        <div class="card p-5 text-center border-dashed">
+            <i data-lucide="info" class="text-muted mb-3 mx-auto" style="width: 48px; height: 48px;"></i>
+            <h4>Mesa Disponible</h4>
+            <p class="text-muted">Para empezar a cargar consumos, debes abrir la mesa primero.</p>
+            <a href="{% url 'mesa_abrir' mesa.id %}" class="btn btn-primary mt-3">Abrir Mesa Ahora</a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Menú para seleccionar -->
+    <div class="col-lg-5">
+        <div class="card border-0 shadow-sm p-4 sticky-top" style="top: 100px;">
+            <h5 class="fw-bold mb-4 d-flex align-items-center gap-2">
+                <i data-lucide="utensils-crosseyed" class="text-primary"></i> Menú / Carta
+            </h5>
+            
+            <!-- Buscador rápido -->
+            <div class="input-group mb-4">
+                <span class="input-group-text bg-white border-end-0"><i data-lucide="search" style="width: 18px;"></i></span>
+                <input type="text" id="searchMenu" class="form-control border-start-0" placeholder="Buscar plato o bebida...">
+            </div>
+
+            <div class="list-group list-group-flush overflow-auto" style="max-height: 60vh;">
+                {% for prod in productos %}
+                <div class="list-group-item px-0 border-dashed d-flex align-items-center justify-content-between gap-3 menu-item">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="bg-light rounded p-2">
+                            <i data-lucide="utensils" class="text-primary" style="width: 20px;"></i>
+                        </div>
+                        <div>
+                            <h6 class="mb-0 fw-bold item-name">{{ prod.nombre }}</h6>
+                            <small class="text-primary fw-bold">S/ {{ prod.precio_venta }}</small>
+                        </div>
+                    </div>
+                    
+                    {% if comanda %}
+                    <form action="{% url 'mesa_agregar_item' comanda.id %}" method="POST" class="d-flex gap-1 align-items-center">
+                        {% csrf_token %}
+                        <input type="hidden" name="producto_id" value="{{ prod.id }}">
+                        <input type="number" name="cantidad" value="1" min="1" class="form-control form-control-sm" style="width: 50px;">
+                        <button type="submit" class="btn btn-sm btn-primary rounded-circle" title="Agregar">
+                            <i data-lucide="plus" style="width: 14px;"></i>
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+                {% empty %}
+                <p class="text-muted text-center py-3 small">No hay productos disponibles en el menú.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Buscador en tiempo real de productos
+    document.getElementById('searchMenu').addEventListener('keyup', function() {
+        let value = this.value.toLowerCase();
+        document.querySelectorAll('.menu-item').forEach(function(item) {
+            let name = item.querySelector('.item-name').textContent.toLowerCase();
+            if (name.includes(value)) {
+                item.style.display = 'flex';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    });
+</script>
+{% endblock %}

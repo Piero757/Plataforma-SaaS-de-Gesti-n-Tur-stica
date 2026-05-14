@@ -68,6 +68,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'gestion.context_processors.empresa_config',
             ],
         },
     },
@@ -124,6 +125,10 @@ CORS_ALLOW_ALL_ORIGINS = True # Ajustar en producción
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+# Archivos Media (Imágenes subidas)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 # Sesiones y Autenticación
 LOGIN_URL = 'login'

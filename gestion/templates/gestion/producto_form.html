@@ -1,0 +1,224 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ titulo }} | TurismoERP{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="d-flex align-items-center justify-content-between mb-4">
+            <div class="d-flex align-items-center gap-3">
+                <a href="{% url 'inventario_list' %}" class="btn btn-outline-secondary btn-sm rounded-circle p-2 shadow-sm">
+                    <i data-lucide="arrow-left" style="width: 20px;"></i>
+                </a>
+                <h3 class="fw-bold m-0 text-gradient-primary">{{ titulo }}</h3>
+            </div>
+            <div class="badge bg-soft-primary p-2 px-3 border border-primary border-opacity-10 text-primary">
+                <i data-lucide="package" class="me-1" style="width: 16px;"></i> Maestro de Artículos
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-lg overflow-hidden">
+            <div class="card-header bg-white p-0 border-bottom">
+                <ul class="nav nav-tabs nav-justified border-0" id="articleTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active py-3 fw-bold border-0 border-bottom border-3 border-transparent" id="article-tab" data-bs-toggle="tab" data-bs-target="#article-content" type="button" role="tab">
+                            <i data-lucide="info" class="me-2" style="width: 18px;"></i> Información del Artículo
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link py-3 fw-bold border-0 border-bottom border-3 border-transparent" id="stock-tab" data-bs-toggle="tab" data-bs-target="#stock-content" type="button" role="tab">
+                            <i data-lucide="box" class="me-2" style="width: 18px;"></i> Inventario y Existencias
+                        </button>
+                    </li>
+                </ul>
+            </div>
+
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="card-body p-4">
+                    <div class="tab-content" id="articleTabsContent">
+                        <!-- Tab 1: Info General -->
+                        <div class="tab-pane fade show active" id="article-content" role="tabpanel">
+                            <div class="row g-4">
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold text-muted small uppercase ls-1">Código / Código de Barras</label>
+                                    {{ form.codigo }}
+                                    {% if form.codigo.errors %}<div class="text-danger small mt-1">{{ form.codigo.errors }}</div>{% endif %}
+                                </div>
+                                <div class="col-md-8">
+                                    <label class="form-label fw-bold text-muted small uppercase ls-1">Nombre del Artículo</label>
+                                    {{ form.nombre }}
+                                    {% if form.nombre.errors %}<div class="text-danger small mt-1">{{ form.nombre.errors }}</div>{% endif %}
+                                </div>
+
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold text-muted small uppercase ls-1">Costo Unitario</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-light border-end-0">S/</span>
+                                        {{ form.precio_compra }}
+                                    </div>
+                                    {% if form.precio_compra.errors %}<div class="text-danger small mt-1">{{ form.precio_compra.errors }}</div>{% endif %}
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold text-muted small uppercase ls-1">Precio Unitario (Venta)</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-light border-end-0">S/</span>
+                                        {{ form.precio_venta }}
+                                    </div>
+                                    {% if form.precio_venta.errors %}<div class="text-danger small mt-1">{{ form.precio_venta.errors }}</div>{% endif %}
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold text-muted small uppercase ls-1 text-primary">Precio Corporativo</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-soft-primary border-end-0 text-primary">S/</span>
+                                        {{ form.precio_corporativo }}
+                                    </div>
+                                    {% if form.precio_corporativo.errors %}<div class="text-danger small mt-1">{{ form.precio_corporativo.errors }}</div>{% endif %}
+                                </div>
+
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold text-muted small uppercase ls-1">Impuesto</label>
+                                    {{ form.impuesto }}
+                                    {% if form.impuesto.errors %}<div class="text-danger small mt-1">{{ form.impuesto.errors }}</div>{% endif %}
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold text-muted small uppercase ls-1">Categoría</label>
+                                    {{ form.categoria }}
+                                    {% if form.categoria.errors %}<div class="text-danger small mt-1">{{ form.categoria.errors }}</div>{% endif %}
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold text-muted small uppercase ls-1">Subcategoría</label>
+                                    {{ form.subcategoria }}
+                                    {% if form.subcategoria.errors %}<div class="text-danger small mt-1">{{ form.subcategoria.errors }}</div>{% endif %}
+                                </div>
+
+                                <!-- NUEVOS CAMPOS DE STOCK EN PESTAÑA PRINCIPAL -->
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold text-primary small uppercase ls-1">Stock Actual (Existencias)</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-soft-primary border-end-0"><i data-lucide="box" style="width: 16px;"></i></span>
+                                        {{ form.stock }}
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold text-muted small uppercase ls-1">Stock Ideal</label>
+                                    {{ form.stock_ideal }}
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold text-muted small uppercase ls-1">Stock Mínimo (Alerta)</label>
+                                    {{ form.stock_minimo }}
+                                </div>
+
+                                <div class="col-12">
+                                    <label class="form-label fw-bold text-muted small uppercase ls-1">Descripción Detallada</label>
+                                    {{ form.descripcion }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tab 2: Stock -->
+                        <div class="tab-pane fade" id="stock-content" role="tabpanel">
+                            <div class="alert alert-soft-info d-flex align-items-center mb-4 border-0">
+                                <i data-lucide="info" class="me-3" style="width: 24px;"></i>
+                                <div>
+                                    Configure los niveles de stock para este artículo. Esto ayudará a generar alertas automáticas.
+                                </div>
+                            </div>
+
+                            <div class="table-responsive border rounded mb-4">
+                                <table class="table table-hover align-middle m-0">
+                                    <thead class="bg-light">
+                                        <tr>
+                                            <th class="ps-3">Ubicación / Almacén</th>
+                                            <th class="text-center">Stock Actual</th>
+                                            <th class="text-center">Cant. Ideal</th>
+                                            <th class="text-center">Cant. Aviso</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td class="ps-3 fw-semibold">Almacén Principal / Sede Central</td>
+                                            <td class="text-center">
+                                                <span class="badge bg-soft-primary text-primary px-3 py-2 border">
+                                                    Ver en pestaña principal
+                                                </span>
+                                            </td>
+                                            <td class="text-center text-muted">---</td>
+                                            <td class="text-center text-muted">---</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div class="row g-3 bg-light p-3 rounded border mx-0">
+                                <div class="col-md-4">
+                                    <label class="form-label text-muted small uppercase">Gestión de Inventario</label>
+                                    <div class="form-control border-0 bg-white small text-muted">
+                                        Modifique los valores en la pestaña principal
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label text-muted small uppercase">Imagen del Producto</label>
+                                    {{ form.imagen }}
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label text-muted small uppercase">Estado de Existencias</label>
+                                    <div class="form-control border-0 bg-white fw-bold text-success">
+                                        <i data-lucide="check-circle" class="me-1" style="width: 16px;"></i> Activo
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card-footer bg-white p-4 border-top d-flex justify-content-between align-items-center">
+                    <div class="text-muted small">
+                        <i data-lucide="help-circle" class="me-1" style="width: 14px;"></i> Use el botón de ayuda para más información.
+                    </div>
+                    <div class="d-flex gap-2">
+                        <a href="{% url 'inventario_list' %}" class="btn btn-light px-4 border">Cancelar</a>
+                        <button type="submit" class="btn btn-primary px-5 shadow-sm">
+                            <i data-lucide="save" class="me-2" style="width: 18px;"></i> Aceptar y Guardar
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    .text-gradient-primary {
+        background: linear-gradient(45deg, #0d6efd, #0dcaf0);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    .nav-tabs .nav-link {
+        color: #6c757d;
+        background: #f8f9fa;
+        transition: all 0.3s ease;
+    }
+    .nav-tabs .nav-link.active {
+        background: #fff !important;
+        color: #0d6efd !important;
+        border-bottom-color: #0d6efd !important;
+    }
+    .nav-tabs .nav-link:hover:not(.active) {
+        background: #e9ecef;
+    }
+    .uppercase { text-transform: uppercase; }
+    .ls-1 { letter-spacing: 0.5px; }
+    .bg-soft-primary { background-color: rgba(13, 110, 253, 0.05); }
+    .form-control:focus, .form-select:focus {
+        border-color: #86b7fe;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.1);
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        lucide.createIcons();
+    });
+</script>
+{% endblock %}

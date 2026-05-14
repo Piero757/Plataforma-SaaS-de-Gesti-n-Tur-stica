@@ -1,12 +1,21 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.db.models import Sum, Count, F
+from django.db import transaction
+from django.db.models import Sum, Count, F, Q
 from django.utils import timezone
 from django.http import HttpResponse, JsonResponse
 from django import forms
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from .models import Venta, Producto, Inventario, RegistroServicio, Cliente, Proveedor, Compra, FacturaElectronica, DetalleVenta, ConfiguracionEmpresa
-from .forms import ClienteForm, UsuarioCreateForm, ProveedorForm, ProductoForm, CompraForm, VentaForm, ServicioForm, ConfiguracionEmpresaForm
+from .models import (
+    Venta, Producto, Inventario, RegistroServicio, Cliente, Proveedor, 
+    Compra, FacturaElectronica, DetalleVenta, ConfiguracionEmpresa,
+    Habitacion, Mesa, Reserva, PedidoHabitacion, DetalleCompra, CuotaCompra
+)
+from .forms import (
+    ClienteForm, UsuarioCreateForm, ProveedorForm, ProductoForm, 
+    CompraForm, VentaForm, ServicioForm, ConfiguracionEmpresaForm,
+    HabitacionForm, MesaForm, ReservaForm, PedidoHabitacionForm, DetalleCompraForm, CuotaCompraForm
+)
 import openpyxl
 import csv
 from datetime import datetime
@@ -23,6 +32,9 @@ def dashboard_view(request):
     month_start = today.replace(day=1)
 
     modulo = request.session.get('modulo', 'HOTEL')
+    
+    if modulo == 'RESTAURANTE':
+        return redirect('restaurante')
     
     total_usuarios = User.objects.count()
     ventas_hoy = Venta.objects.filter(fecha__date=today, modulo=modulo).aggregate(Sum('total'))['total__sum'] or 0
@@ -58,11 +70,14 @@ def restaurante_view(request):
         detalles__producto__categoria='RESTAURANTE'
     ).distinct().aggregate(Sum('total'))['total__sum'] or 0
     
+    mesas = Mesa.objects.all().order_by('numero')
+    
     context = {
         'productos': productos,
         'ventas_recientes': ventas_restaurante[:5],
         'ventas_hoy': ventas_hoy,
         'cantidad_productos': productos.count(),
+        'mesas': mesas,
         'titulo': 'Panel de Restaurante'
     }
     return render(request, 'gestion/restaurante_dashboard.html', context)
@@ -130,7 +145,9 @@ def clientes_list(request):
     query = request.GET.get('q')
     tipo = request.GET.get('tipo')
     
-    clientes = Cliente.objects.filter(activo=True, modulo=modulo)
+    clientes = Cliente.objects.filter(activo=True, modulo=modulo).annotate(
+        num_hospedajes=Count('reserva', distinct=True)
+    )
     
     if query:
         clientes = clientes.filter(
@@ -154,7 +171,9 @@ def clientes_historial(request):
     query = request.GET.get('q')
     tipo = request.GET.get('tipo')
     
-    clientes = Cliente.objects.filter(activo=False)
+    clientes = Cliente.objects.filter(activo=False).annotate(
+        num_hospedajes=Count('reserva', distinct=True)
+    )
     
     if query:
         clientes = clientes.filter(
@@ -296,32 +315,87 @@ def inventario_historial(request):
 
 @login_required
 def producto_create(request):
+    is_restaurante = request.GET.get('categoria') == 'RESTAURANTE' or request.session.get('modulo') == 'RESTAURANTE'
+    
     if request.method == 'POST':
-        form = ProductoForm(request.POST)
+        form = ProductoForm(request.POST, request.FILES)
         if form.is_valid():
             producto = form.save(commit=False)
-            producto.modulo = request.session.get('modulo', 'HOTEL')
+            if is_restaurante:
+                producto.modulo = 'RESTAURANTE'
+                producto.categoria = 'RESTAURANTE'
+            
+            # CAPTURA MANUAL DE TODOS LOS STOCKS
+            stock_actual = int(request.POST.get('stock', 0) or 0)
+            stock_min = int(request.POST.get('stock_minimo', 0) or 0)
+            stock_ideal_val = int(request.POST.get('stock_ideal', 0) or 0)
+            stock_alert_val = int(request.POST.get('stock_alerta', 0) or 0)
+            
+            producto.stock_minimo = stock_min
+            producto.stock_ideal = stock_ideal_val
+            producto.stock_alerta = stock_alert_val
             producto.save()
-            # Crear entrada en inventario si no existe
-            Inventario.objects.get_or_create(producto=producto, defaults={'stock_actual': 0})
-            messages.success(request, "Producto creado.")
+            form.save_m2m()
+                
+            # Guardar en Inventario
+            inv, created = Inventario.objects.update_or_create(
+                producto=producto,
+                defaults={'stock_actual': stock_actual}
+            )
+            
+            messages.success(request, f'Producto creado. Stock: {stock_actual}, Ideal: {stock_ideal_val}')
+            if is_restaurante:
+                return redirect('carta_lista')
             return redirect('inventario_list')
     else:
-        form = ProductoForm()
-    return render(request, 'gestion/base_form.html', {'form': form, 'titulo': 'Nuevo Producto'})
+        initial = {}
+        if is_restaurante:
+            initial = {'categoria': 'RESTAURANTE', 'modulo': 'RESTAURANTE'}
+        form = ProductoForm(initial=initial)
+    
+    template = 'gestion/producto_form_restaurante.html' if is_restaurante else 'gestion/producto_form.html'
+    return render(request, template, {'form': form, 'titulo': 'Nuevo Artículo'})
 
 @login_required
 def producto_update(request, pk):
     producto = get_object_or_404(Producto, pk=pk)
+    is_restaurante = producto.modulo == 'RESTAURANTE'
+    
     if request.method == 'POST':
-        form = ProductoForm(request.POST, instance=producto)
+        form = ProductoForm(request.POST, request.FILES, instance=producto)
         if form.is_valid():
-            form.save()
-            messages.success(request, "Producto actualizado.")
+            prod_edit = form.save(commit=False)
+            
+            # CAPTURA MANUAL DE TODOS LOS STOCKS
+            stock_actual = int(request.POST.get('stock', 0) or 0)
+            stock_min = int(request.POST.get('stock_minimo', 0) or 0)
+            stock_ideal_val = int(request.POST.get('stock_ideal', 0) or 0)
+            
+            prod_edit.stock_minimo = stock_min
+            prod_edit.stock_ideal = stock_ideal_val
+            prod_edit.save()
+            form.save_m2m()
+                
+            # Guardar en Inventario
+            inv, created = Inventario.objects.update_or_create(
+                producto=prod_edit,
+                defaults={'stock_actual': stock_actual}
+            )
+            
+            messages.success(request, f'Producto actualizado. Stock: {stock_actual}, Ideal: {stock_ideal_val}')
+            if is_restaurante:
+                return redirect('carta_lista')
             return redirect('inventario_list')
+        else:
+            # Mostrar errores si el formulario no es válido
+            for field, errors in form.errors.items():
+                messages.warning(request, f"Error en {field}: {errors}")
     else:
         form = ProductoForm(instance=producto)
-    return render(request, 'gestion/base_form.html', {'form': form, 'titulo': 'Editar Producto'})
+    
+    template = 'gestion/producto_form_restaurante.html' if is_restaurante else 'gestion/producto_form.html'
+    return render(request, template, {'form': form, 'producto': producto, 'titulo': 'Editar Artículo'})
+
 @login_required
 def producto_delete(request, pk):
     producto = get_object_or_404(Producto, pk=pk)
@@ -497,22 +571,104 @@ def importar_ventas(request):
 @login_required
 def compras_list(request):
     modulo = request.session.get('modulo', 'HOTEL')
-    compras = Compra.objects.filter(modulo=modulo).order_by('-fecha')
+    compras = Compra.objects.filter(modulo=modulo, activo=True).order_by('-fecha')
     return render(request, 'gestion/compras_list.html', {'compras': compras})
+
+@login_required
+def compras_historial(request):
+    modulo = request.session.get('modulo', 'HOTEL')
+    compras = Compra.objects.filter(modulo=modulo, activo=False).order_by('-fecha')
+    return render(request, 'gestion/compras_list.html', {
+        'compras': compras,
+        'es_historial': True,
+        'titulo': 'Historial de Compras (Eliminadas)'
+    })
 
 @login_required
 def compra_create(request):
     if request.method == 'POST':
         form = CompraForm(request.POST)
         if form.is_valid():
-            compra = form.save(commit=False)
-            compra.modulo = request.session.get('modulo', 'HOTEL')
-            compra.save()
-            messages.success(request, "Compra registrada.")
-            return redirect('compras_list')
+            with transaction.atomic():
+                compra = form.save(commit=False)
+                compra.modulo = request.session.get('modulo', 'HOTEL')
+                compra.save()
+                
+                # Guardar Detalles (Items)
+                productos = request.POST.getlist('producto[]')
+                cantidades = request.POST.getlist('cantidad[]')
+                precios = request.POST.getlist('precio[]')
+                
+                for i in range(len(productos)):
+                    if productos[i]:
+                        DetalleCompra.objects.create(
+                            compra=compra,
+                            producto_id=productos[i],
+                            cantidad=cantidades[i],
+                            precio_unitario=precios[i],
+                            subtotal=float(cantidades[i]) * float(precios[i])
+                        )
+                        # Actualizar Inventario
+                        inventario, _ = Inventario.objects.get_or_create(producto_id=productos[i])
+                        inventario.stock_actual += int(cantidades[i])
+                        inventario.save()
+                
+                # Guardar Cuotas si es crédito
+                if compra.forma_pago == 'CREDITO':
+                    num_cuotas = int(request.POST.get('num_cuotas', 1))
+                    compra.num_cuotas = num_cuotas
+                    compra.save()
+                    
+                    montos_cuotas = request.POST.getlist('monto_cuota[]')
+                    fechas_cuotas = request.POST.getlist('fecha_cuota[]')
+                    
+                    for i in range(num_cuotas):
+                        CuotaCompra.objects.create(
+                            compra=compra,
+                            numero_cuota=i+1,
+                            monto=montos_cuotas[i],
+                            fecha_vencimiento=fechas_cuotas[i]
+                        )
+                
+                messages.success(request, "Compra registrada con éxito y stock actualizado.")
+                return redirect('compras_list')
     else:
         form = CompraForm()
-    return render(request, 'gestion/base_form.html', {'form': form, 'titulo': 'Registrar Compra'})
+    
+    productos = Producto.objects.filter(activo=True)
+    return render(request, 'gestion/compra_form.html', {
+        'form': form, 
+        'productos': productos,
+        'titulo': 'Registrar Compra Detallada'
+    })
+
+@login_required
+def compra_detalle(request, pk):
+    compra = get_object_or_404(Compra, pk=pk)
+    detalles = compra.detalles.all()
+    cuotas = compra.cuotas.all().order_by('numero_cuota')
+    return render(request, 'gestion/compra_detalle.html', {
+        'compra': compra,
+        'detalles': detalles,
+        'cuotas': cuotas,
+        'titulo': f'Detalle de Compra {compra.numero_comprobante}'
+    })
+
+@login_required
+def compra_delete(request, pk):
+    compra = get_object_or_404(Compra, pk=pk)
+    compra.activo = False
+    compra.save()
+    messages.success(request, "Compra movida al historial.")
+    return redirect('compras_list')
+
+@login_required
+def compra_restore(request, pk):
+    compra = get_object_or_404(Compra, pk=pk)
+    compra.activo = True
+    compra.save()
+    messages.success(request, "Compra restaurada correctamente.")
+    return redirect('compras_list')
 
 # --- SERVICIOS ---
 
@@ -656,7 +812,7 @@ def exportar_ventas_excel(request):
     ws.title = "Ventas"
     columns = ['ID', 'Fecha', 'Cliente', 'Tipo', 'Serie-Numero', 'Total', 'Forma Pago', 'Estado SUNAT']
     ws.append(columns)
-    ventas = Venta.objects.all().order_by('-fecha')
+    ventas = Venta.objects.all().order_by('fecha')
     for v in ventas:
         ws.append([v.id, v.fecha.strftime('%d/%m/%Y %H:%M'), v.cliente.nombre_razon_social,
                    v.tipo_comprobante, f"{v.serie}-{v.numero}", float(v.total), v.forma_pago, v.estado_sunat])
@@ -715,3 +871,390 @@ def configuracion_empresa(request):
         form = ConfiguracionEmpresaForm(instance=config)
         
     return render(request, 'gestion/configuracion.html', {'form': form, 'config': config})
+
+# --- HOTEL: HABITACIONES Y RESERVAS ---
+
+@login_required
+def habitaciones_list(request):
+    habitaciones = Habitacion.objects.filter(activo=True).order_by('numero')
+    return render(request, 'gestion/habitaciones_list.html', {'habitaciones': habitaciones})
+
+@login_required
+def habitaciones_historial(request):
+    habitaciones = Habitacion.objects.filter(activo=False).order_by('numero')
+    return render(request, 'gestion/habitaciones_list.html', {
+        'habitaciones': habitaciones,
+        'es_historial': True,
+        'titulo': 'Historial de Habitaciones (Eliminadas)'
+    })
+
+
+@login_required
+def habitacion_create(request):
+    if request.method == 'POST':
+        form = HabitacionForm(request.POST, request.FILES)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Habitación registrada.")
+            return redirect('habitaciones_list')
+    else:
+        form = HabitacionForm()
+    return render(request, 'gestion/base_form.html', {'form': form, 'titulo': 'Nueva Habitación'})
+
+@login_required
+def habitacion_update(request, pk):
+    habitacion = get_object_or_404(Habitacion, pk=pk)
+    if request.method == 'POST':
+        form = HabitacionForm(request.POST, request.FILES, instance=habitacion)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Habitación actualizada correctamente.")
+            return redirect('habitaciones_list')
+    else:
+        form = HabitacionForm(instance=habitacion)
+    return render(request, 'gestion/base_form.html', {'form': form, 'titulo': 'Editar Habitación'})
+
+@login_required
+def habitacion_delete(request, pk):
+    habitacion = get_object_or_404(Habitacion, pk=pk)
+    habitacion.activo = False
+    habitacion.save()
+    messages.success(request, "Habitación movida al historial.")
+    return redirect('habitaciones_list')
+
+@login_required
+def habitacion_restore(request, pk):
+    habitacion = get_object_or_404(Habitacion, pk=pk)
+    habitacion.activo = True
+    habitacion.save()
+    messages.success(request, "Habitación restaurada correctamente.")
+    return redirect('habitaciones_list')
+
+@login_required
+def reserva_list(request):
+    reservas = Reserva.objects.filter(activo=True).order_by('-fecha_creacion')
+    return render(request, 'gestion/reservas_list.html', {'reservas': reservas})
+
+@login_required
+def reservas_historial(request):
+    reservas = Reserva.objects.filter(activo=False).order_by('-fecha_creacion')
+    return render(request, 'gestion/reservas_list.html', {
+        'reservas': reservas,
+        'es_historial': True,
+        'titulo': 'Historial de Recepción (Eliminados)'
+    })
+
+@login_required
+def reserva_create(request):
+    habitacion_id = request.GET.get('hab')
+    if request.method == 'POST':
+        form = ReservaForm(request.POST)
+        if form.is_valid():
+            reserva = form.save(commit=False)
+            reserva.estado = 'CHECKIN'
+            reserva.save()
+            # Actualizar estado de habitación
+            reserva.habitacion.estado = 'OCUPADA'
+            reserva.habitacion.save()
+            messages.success(request, "Check-in realizado correctamente.")
+            return redirect('reserva_list')
+    else:
+        initial_data = {}
+        if habitacion_id:
+            initial_data['habitacion'] = habitacion_id
+        form = ReservaForm(initial=initial_data)
+    
+    # Preparamos los precios de las habitaciones para el JS
+    habitaciones_precios = {h.id: float(h.precio_noche) for h in Habitacion.objects.all()}
+    
+    return render(request, 'gestion/reserva_form.html', {
+        'form': form, 
+        'titulo': 'Nueva Reserva / Check-in',
+        'precios_json': json.dumps(habitaciones_precios)
+    })
+
+@login_required
+def pedido_habitacion_create(request, reserva_id):
+    reserva = get_object_or_404(Reserva, id=reserva_id)
+    if request.method == 'POST':
+        form = PedidoHabitacionForm(request.POST)
+        if form.is_valid():
+            pedido = form.save(commit=False)
+            pedido.reserva = reserva
+            pedido.subtotal = pedido.cantidad * pedido.precio_unitario
+            pedido.save()
+            messages.success(request, "Pedido registrado a la habitación.")
+            return redirect('reserva_list')
+    else:
+        form = PedidoHabitacionForm()
+    
+    # Preparamos los precios de los productos para el JS
+    productos_precios = {p.id: float(p.precio_venta) for p in Producto.objects.filter(activo=True)}
+    
+    return render(request, 'gestion/pedido_form.html', {
+        'form': form, 
+        'titulo': f'Nuevo Pedido - Hab. {reserva.habitacion.numero}',
+        'precios_json': json.dumps(productos_precios),
+        'reserva': reserva
+    })
+
+@login_required
+def reserva_checkout(request, reserva_id):
+    reserva = get_object_or_404(Reserva, id=reserva_id)
+    pedidos = reserva.pedidos.filter(pagado=False)
+    total_pedidos = pedidos.aggregate(Sum('subtotal'))['subtotal__sum'] or 0
+    total_final = reserva.total_hospedaje + total_pedidos - reserva.adelanto
+
+    if request.method == 'POST':
+        # Crear la venta formal
+        venta = Venta.objects.create(
+            cliente=reserva.cliente,
+            usuario=request.user,
+            tipo_comprobante=request.POST.get('tipo_comprobante', 'BOLETA'),
+            serie='F001' if request.POST.get('tipo_comprobante') == 'FACTURA' else 'B001',
+            numero=Venta.objects.count() + 1,
+            total=total_final,
+            forma_pago=request.POST.get('forma_pago', 'CONTADO'),
+            modulo='HOTEL'
+        )
+        
+        # Detalle: Hospedaje
+        producto_hospedaje, _ = Producto.objects.get_or_create(
+            codigo='HOSP-01', 
+            defaults={'nombre': 'Servicio de Hospedaje', 'precio_venta': reserva.total_hospedaje, 'categoria': 'HOSPEDAJE'}
+        )
+        DetalleVenta.objects.create(
+            venta=venta,
+            producto=producto_hospedaje,
+            cantidad=1,
+            precio_unitario=reserva.total_hospedaje,
+            subtotal=reserva.total_hospedaje
+        )
+        
+        # Detalle: Pedidos
+        for p in pedidos:
+            DetalleVenta.objects.create(
+                venta=venta,
+                producto=p.producto,
+                cantidad=p.cantidad,
+                precio_unitario=p.precio_unitario,
+                subtotal=p.subtotal
+            )
+            p.pagado = True
+            p.save()
+        
+        # Finalizar reserva
+        reserva.estado = 'CHECKOUT'
+        reserva.save()
+        reserva.habitacion.estado = 'LIMPIEZA'
+        reserva.habitacion.save()
+        
+        messages.success(request, "Checkout finalizado y venta generada.")
+        return redirect('ventas_list')
+
+    context = {
+        'reserva': reserva,
+        'pedidos': pedidos,
+        'total_pedidos': total_pedidos,
+        'total_final': total_final,
+        'titulo': 'Checkout / Facturación de Estadía'
+    }
+    return render(request, 'gestion/checkout_form.html', context)
+
+@login_required
+def reserva_detalle(request, pk):
+    reserva = get_object_or_404(Reserva, pk=pk)
+    pedidos = reserva.pedidos.all().order_by('-fecha_pedido')
+    total_pedidos = pedidos.aggregate(Sum('subtotal'))['subtotal__sum'] or 0
+    total_final = reserva.total_hospedaje + total_pedidos - reserva.adelanto
+    
+    context = {
+        'reserva': reserva,
+        'pedidos': pedidos,
+        'total_pedidos': total_pedidos,
+        'total_final': total_final,
+        'titulo': f'Detalle de Estadía - Hab. {reserva.habitacion.numero}'
+    }
+    return render(request, 'gestion/reserva_detalle.html', context)
+
+@login_required
+def reserva_finalizar_temprano(request, pk):
+    reserva = get_object_or_404(Reserva, pk=pk)
+    if reserva.estado == 'CHECKIN':
+        reserva.fecha_salida = timezone.now()
+        # Recalcular total hospedaje basado en el nuevo tiempo
+        diff = reserva.fecha_salida - reserva.fecha_ingreso
+        noches = max(1, diff.days + (1 if diff.seconds > 3600 else 0)) # Al menos 1 hora cuenta como fracción
+        reserva.total_hospedaje = noches * reserva.habitacion.precio_noche
+        reserva.save()
+        messages.info(request, f"Estadía finalizada antes de tiempo. Se han calculado {noches} noches.")
+    return redirect('reserva_checkout', reserva_id=reserva.id)
+
+@login_required
+def reserva_delete(request, pk):
+    reserva = get_object_or_404(Reserva, pk=pk)
+    reserva.activo = False
+    reserva.save()
+    
+    # Si estaba ocupada, liberar la habitación
+    if reserva.estado == 'CHECKIN':
+        reserva.habitacion.estado = 'DISPONIBLE'
+        reserva.habitacion.save()
+        
+    messages.success(request, "Registro de recepción movido al historial.")
+    return redirect('reserva_list')
+
+@login_required
+def reserva_restore(request, pk):
+    reserva = get_object_or_404(Reserva, pk=pk)
+    reserva.activo = True
+    reserva.save()
+    
+    # Si vuelve a estar activa y no ha hecho checkout, volver a ocupar la habitación
+    if reserva.estado == 'CHECKIN':
+        reserva.habitacion.estado = 'OCUPADA'
+        reserva.habitacion.save()
+        
+    messages.success(request, "Registro restaurado correctamente.")
+    return redirect('reserva_list')
+
+@login_required
+def mesa_abrir(request, mesa_id):
+    mesa = get_object_or_404(Mesa, id=mesa_id)
+    if mesa.estado == 'DISPONIBLE':
+        cliente, _ = Cliente.objects.get_or_create(
+            numero_documento='00000000', 
+            defaults={'nombre_razon_social': 'Público General', 'tipo_documento': 'DNI', 'modulo': 'RESTAURANTE'}
+        )
+        
+        venta = Venta.objects.create(
+            cliente=cliente,
+            usuario=request.user,
+            tipo_comprobante='TICKET',
+            serie='COM',
+            numero=Venta.objects.filter(serie='COM').count() + 1,
+            total=0,
+            es_comanda=True,
+            mesa=mesa,
+            modulo='RESTAURANTE'
+        )
+        mesa.estado = 'OCUPADA'
+        mesa.save()
+        messages.success(request, f"Mesa {mesa.numero} abierta.")
+    return redirect('mesa_detalle', mesa_id=mesa.id)
+
+@login_required
+def mesa_detalle(request, mesa_id):
+    mesa = get_object_or_404(Mesa, id=mesa_id)
+    comanda = Venta.objects.filter(mesa=mesa, es_comanda=True).last()
+    productos = Producto.objects.filter(categoria='RESTAURANTE', activo=True)
+    
+    return render(request, 'gestion/mesa_detalle.html', {
+        'mesa': mesa,
+        'comanda': comanda,
+        'productos': productos,
+        'titulo': f'Mesa {mesa.numero}'
+    })
+
+@login_required
+def mesa_agregar_item(request, venta_id):
+    venta = get_object_or_404(Venta, id=venta_id)
+    if request.method == 'POST':
+        producto_id = request.POST.get('producto_id')
+        cantidad = int(request.POST.get('cantidad', 1))
+        producto = get_object_or_404(Producto, id=producto_id)
+        
+        detalle, created = DetalleVenta.objects.get_or_create(
+            venta=venta,
+            producto=producto,
+            defaults={
+                'cantidad': 0,
+                'precio_unitario': producto.precio_venta,
+                'subtotal': 0
+            }
+        )
+        detalle.cantidad += cantidad
+        detalle.subtotal = detalle.cantidad * detalle.precio_unitario
+        detalle.save()
+        
+        venta.total = sum(d.subtotal for d in venta.detalles.all())
+        venta.save()
+        
+    return redirect('mesa_detalle', mesa_id=venta.mesa.id)
+
+@login_required
+def mesa_cerrar(request, venta_id):
+    venta = get_object_or_404(Venta, id=venta_id)
+    if request.method == 'POST':
+        tipo = request.POST.get('tipo_comprobante', 'BOLETA')
+        venta.es_comanda = False
+        venta.tipo_comprobante = tipo
+        venta.save()
+        
+        if venta.mesa:
+            venta.mesa.estado = 'DISPONIBLE'
+            venta.mesa.save()
+            
+        messages.success(request, f"Cuenta de Mesa {venta.mesa.numero} cerrada.")
+    return redirect('restaurante')
+
+@login_required
+def mesas_list(request):
+    mesas = Mesa.objects.all().order_by('numero')
+    return render(request, 'gestion/mesas_list.html', {'mesas': mesas})
+
+@login_required
+def mesa_create(request):
+    if request.method == 'POST':
+        form = MesaForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Mesa creada correctamente.")
+            return redirect('mesas_list')
+    else:
+        form = MesaForm()
+    return render(request, 'gestion/mesa_form.html', {'form': form, 'titulo': 'Nueva Mesa'})
+
+@login_required
+def mesa_update(request, pk):
+    mesa = get_object_or_404(Mesa, pk=pk)
+    if request.method == 'POST':
+        form = MesaForm(request.POST, instance=mesa)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Mesa actualizada correctamente.")
+            return redirect('mesas_list')
+    else:
+        form = MesaForm(instance=mesa)
+    return render(request, 'gestion/mesa_form.html', {'form': form, 'titulo': 'Editar Mesa'})
+
+@login_required
+def mesa_delete(request, pk):
+    mesa = get_object_or_404(Mesa, pk=pk)
+    mesa.delete()
+    messages.success(request, "Mesa eliminada correctamente.")
+    return redirect('mesas_list')
+
+@login_required
+def carta_lista(request):
+    platos = Producto.objects.filter(categoria='RESTAURANTE').order_by('subcategoria', 'nombre')
+    categorias = {}
+    for plato in platos:
+        cat = plato.get_subcategoria_display() or 'Otros'
+        if cat not in categorias:
+            categorias[cat] = []
+        categorias[cat].append(plato)
+        
+    return render(request, 'gestion/carta_lista.html', {
+        'categorias': categorias,
+        'titulo': 'Carta / Menú'
+    })
+
+@login_required
+def ticket_print(request, pk):
+    venta = get_object_or_404(Venta, pk=pk)
+    config = ConfiguracionEmpresa.objects.first()
+    return render(request, 'gestion/ticket_print.html', {
+        'venta': venta,
+        'config': config
+    })

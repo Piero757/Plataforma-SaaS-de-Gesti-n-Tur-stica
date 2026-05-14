@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}TurismoERP - Sistema de Gestión{% endblock %}</title>
+    <title>{% block title %}{{ empresa_config.nombre_sistema|default:"TurismoERP" }} - Sistema de Gestión{% endblock %}</title>
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Google Fonts -->
@@ -35,6 +35,19 @@
             color: #fff;
             transition: all 0.3s;
             z-index: 1000;
+            overflow-y: auto;
+        }
+
+        /* Scrollbar del menú lateral */
+        #sidebar::-webkit-scrollbar {
+            width: 5px;
+        }
+        #sidebar::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+        }
+        #sidebar:hover::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.2);
         }
 
         #sidebar .logo {
@@ -116,9 +129,16 @@
 
     <aside id="sidebar" style="{% if request.session.modulo == 'RESTAURANTE' %}--sidebar-bg: #2d1e2d; --sidebar-hover: #402b40;{% endif %}">
         <div class="px-4 py-4 mb-2">
-            <div class="logo mb-3">
-                <i data-lucide="{% if request.session.modulo == 'RESTAURANTE' %}utensils{% else %}palmtree{% endif %}" style="color: {% if request.session.modulo == 'RESTAURANTE' %}#ff9900{% else %}#009ef7{% endif %};"></i>
-                <span>TurismoERP</span>
+            <div class="logo mb-4 d-flex flex-column align-items-center text-center px-2">
+                {% if empresa_config.logo %}
+                    <img src="{{ empresa_config.logo.url }}" alt="Logo" class="mb-2 shadow-sm" 
+                         style="max-height: 80px; max-width: 100%; width: auto; object-fit: {% if empresa_config.forma_logo == 'CIRCULAR' %}cover{% else %}contain{% endif %}; 
+                                border-radius: {% if empresa_config.forma_logo == 'CIRCULAR' %}50%{% else %}8px{% endif %};
+                                {% if empresa_config.forma_logo == 'CIRCULAR' %}aspect-ratio: 1/1; height: 80px;{% endif %}">
+                {% else %}
+                    <i data-lucide="{% if request.session.modulo == 'RESTAURANTE' %}utensils{% else %}palmtree{% endif %}" class="mb-2" style="width: 40px; height: 40px; color: {% if request.session.modulo == 'RESTAURANTE' %}#ff9900{% else %}#009ef7{% endif %};"></i>
+                {% endif %}
+                <span class="fs-5 fw-bold" style="color: var(--primary-color);">{{ empresa_config.nombre_sistema|default:"TurismoERP" }}</span>
             </div>
             {% if request.session.modulo == 'RESTAURANTE' %}
             <a href="{% url 'cambiar_modulo' %}?modulo=HOTEL" class="btn btn-sm btn-light-primary w-100 d-flex align-items-center justify-content-center gap-2 py-2 fw-bold" style="background: rgba(0, 158, 247, 0.1); border: 1px solid rgba(0, 158, 247, 0.2); color: #009ef7;">
@@ -132,18 +152,41 @@
         </div>
         
         <nav class="nav flex-column">
+            <!-- DASHBOARD -->
             <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}">
-                <i data-lucide="layout-dashboard"></i> Dashboard {% if request.session.modulo == 'RESTAURANTE' %}(Rest.){% endif %}
+                <i data-lucide="layout-grid"></i> Dashboard
             </a>
-            <a href="/usuarios/" class="nav-link {% if '/usuarios/' in request.path %}active{% endif %}"><i data-lucide="users"></i> Usuarios</a>
-            <a href="/clientes/" class="nav-link"><i data-lucide="user-check"></i> Clientes</a>
-            <a href="/proveedores/" class="nav-link"><i data-lucide="truck"></i> Proveedores</a>
-            <a href="/ventas/" class="nav-link"><i data-lucide="shopping-cart"></i> Ventas</a>
-            <a href="/compras/" class="nav-link"><i data-lucide="shopping-bag"></i> Compras</a>
-            <a href="/inventario/" class="nav-link"><i data-lucide="package"></i> Inventario</a>
-            <a href="/facturacion/" class="nav-link"><i data-lucide="file-text"></i> Facturación</a>
-            <a href="/servicios/" class="nav-link"><i data-lucide="briefcase"></i> Servicios</a>
-            <a href="/reportes/" class="nav-link"><i data-lucide="bar-chart-3"></i> Reportes</a>
+            
+            <!-- USUARIOS -->
+            <a href="{% url 'usuarios_list' %}" class="nav-link"><i data-lucide="users"></i> Usuarios</a>
+            
+            <!-- CLIENTES -->
+            <a href="{% url 'clientes_list' %}" class="nav-link"><i data-lucide="user-check"></i> Clientes</a>
+            
+            <!-- PROVEEDORES -->
+            <a href="{% url 'proveedores_list' %}" class="nav-link"><i data-lucide="truck"></i> Proveedores</a>
+            
+            <!-- VENTAS -->
+            <a href="{% url 'ventas_list' %}" class="nav-link"><i data-lucide="shopping-cart"></i> Ventas</a>
+
+            <!-- SECCIÓN ESPECÍFICA -->
+            {% if request.session.modulo == 'RESTAURANTE' %}
+            <div class="px-4 pt-3 pb-1"><small class="text-muted fw-bold uppercase" style="font-size: 10px; letter-spacing: 1px;">Restaurante</small></div>
+            <a href="{% url 'restaurante' %}" class="nav-link"><i data-lucide="layout-template"></i> Mapa de Mesas</a>
+            <a href="{% url 'mesas_list' %}" class="nav-link"><i data-lucide="settings-2"></i> Gestión de Mesas</a>
+            <a href="{% url 'carta_lista' %}" class="nav-link"><i data-lucide="book-open"></i> Carta / Menú</a>
+            {% else %}
+            <div class="px-4 pt-3 pb-1"><small class="text-muted fw-bold uppercase" style="font-size: 10px; letter-spacing: 1px;">Hotelería</small></div>
+            <a href="{% url 'habitaciones_list' %}" class="nav-link"><i data-lucide="bed"></i> Habitaciones</a>
+            <a href="{% url 'reserva_list' %}" class="nav-link"><i data-lucide="key"></i> Recepción</a>
+            {% endif %}
+
+            <!-- BACKOFFICE COMPARTIDO -->
+            <div class="px-4 pt-3 pb-1"><small class="text-muted fw-bold uppercase" style="font-size: 10px; letter-spacing: 1px;">Administración</small></div>
+            <a href="{% url 'compras_list' %}" class="nav-link"><i data-lucide="shopping-bag"></i> Compras</a>
+            <a href="{% url 'inventario_list' %}" class="nav-link"><i data-lucide="package"></i> Inventario</a>
+            <a href="{% url 'facturacion_list' %}" class="nav-link"><i data-lucide="file-text"></i> Facturación</a>
+            <a href="{% url 'reportes' %}" class="nav-link"><i data-lucide="bar-chart-3"></i> Reportes</a>
             <a href="{% url 'configuracion_empresa' %}" class="nav-link"><i data-lucide="settings"></i> Configuración</a>
         </nav>
     </aside>
@@ -197,6 +240,22 @@
     <!-- Bootstrap 5 JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // Persistencia del scroll del sidebar
+        document.addEventListener("DOMContentLoaded", function() {
+            const sidebar = document.getElementById("sidebar");
+            const scrollPos = localStorage.getItem("sidebarScrollPos");
+            if (scrollPos && sidebar) {
+                sidebar.scrollTop = scrollPos;
+            }
+        });
+
+        window.onbeforeunload = function() {
+            const sidebar = document.getElementById("sidebar");
+            if (sidebar) {
+                localStorage.setItem("sidebarScrollPos", sidebar.scrollTop);
+            }
+        };
+
         // Initialize Lucide Icons
         lucide.createIcons();
 

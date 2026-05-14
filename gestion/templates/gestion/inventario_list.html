@@ -3,91 +3,163 @@
 {% block title %}Inventario | TurismoERP{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <h3 class="fw-bold mb-1">Control de Inventario</h3>
-        <p class="text-muted">Stock actual y alertas de reposición</p>
+<div class="row g-0" style="margin: -1.5rem;">
+    <!-- Sidebar de Navegación del Módulo -->
+    <div class="col-md-2 bg-light border-end min-vh-100 d-none d-md-block p-3">
+        <h6 class="text-uppercase text-muted small fw-bold mb-3 ls-1">Operaciones</h6>
+        <div class="nav flex-column nav-pills gap-1">
+            <a href="{% url 'inventario_list' %}" class="nav-link active d-flex align-items-center gap-2">
+                <i data-lucide="package" style="width: 18px;"></i> Artículos
+            </a>
+            <a href="{% url 'compra_create' %}" class="nav-link text-dark d-flex align-items-center gap-2">
+                <i data-lucide="shopping-cart" style="width: 18px;"></i> Comprar
+            </a>
+            <a href="{% url 'venta_create' %}" class="nav-link text-dark d-flex align-items-center gap-2">
+                <i data-lucide="trending-up" style="width: 18px;"></i> Venta
+            </a>
+        </div>
+        
+        <h6 class="text-uppercase text-muted small fw-bold mt-4 mb-3 ls-1">Informes</h6>
+        <div class="nav flex-column nav-pills gap-1">
+            <a href="{% url 'reportes' %}" class="nav-link text-dark d-flex align-items-center gap-2">
+                <i data-lucide="bar-chart-2" style="width: 18px;"></i> Inventario
+            </a>
+            <a href="{% url 'reportes' %}" class="nav-link text-dark d-flex align-items-center gap-2">
+                <i data-lucide="map" style="width: 18px;"></i> Por Ubicación
+            </a>
+        </div>
     </div>
-    <div class="d-flex gap-2">
-        {% if not es_historial %}
-        <a href="{% url 'inventario_historial' %}" class="btn btn-outline-secondary d-flex align-items-center gap-2">
-            <i data-lucide="history" style="width: 18px;"></i> Historial
-        </a>
-        <a href="{% url 'producto_create' %}" class="btn btn-primary d-flex align-items-center gap-2">
-            <i data-lucide="plus-circle" style="width: 18px;"></i> Nuevo Producto
-        </a>
-        {% else %}
-        <a href="{% url 'inventario_list' %}" class="btn btn-outline-primary d-flex align-items-center gap-2">
-            <i data-lucide="arrow-left" style="width: 18px;"></i> Volver a Lista
-        </a>
-        {% endif %}
-    </div>
-</div>
 
-<div class="row mb-4">
-    <div class="col-md-4">
-        <div class="card p-3 shadow-sm border-0 bg-light-primary">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <span class="text-primary fw-bold">Total Items</span>
-                    <h4 class="mb-0">{{ inventario.count }}</h4>
+    <!-- Contenido Principal -->
+    <div class="col-md-10 p-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h3 class="fw-bold mb-1 text-primary">Tabla Maestra de Inventario</h3>
+                <p class="text-muted mb-0">Gestión centralizada de existencias y catálogos</p>
+            </div>
+            <div class="d-flex gap-2">
+                {% if not es_historial %}
+                <a href="{% url 'inventario_historial' %}" class="btn btn-outline-secondary d-flex align-items-center gap-2 shadow-sm">
+                    <i data-lucide="history" style="width: 18px;"></i> Historial
+                </a>
+                <a href="{% url 'producto_create' %}" class="btn btn-primary d-flex align-items-center gap-2 shadow-sm px-4">
+                    <i data-lucide="plus-circle" style="width: 18px;"></i> Nuevo Artículo
+                </a>
+                {% else %}
+                <a href="{% url 'inventario_list' %}" class="btn btn-outline-primary d-flex align-items-center gap-2 shadow-sm">
+                    <i data-lucide="arrow-left" style="width: 18px;"></i> Volver a Lista
+                </a>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="row mb-4 g-3">
+            <div class="col-md-3">
+                <div class="card p-3 shadow-sm border-0 bg-gradient-blue text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="small opacity-75 uppercase fw-bold">Total Artículos</span>
+                            <h4 class="mb-0 fw-bold">{{ inventario.count }}</h4>
+                        </div>
+                        <div class="bg-white bg-opacity-20 p-2 rounded-3">
+                            <i data-lucide="package" style="width: 24px;"></i>
+                        </div>
+                    </div>
                 </div>
-                <i data-lucide="package" class="text-primary"></i>
+            </div>
+            <div class="col-md-3">
+                <div class="card p-3 shadow-sm border-0 bg-gradient-orange text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="small opacity-75 uppercase fw-bold">Stock Crítico</span>
+                            <h4 class="mb-0 fw-bold">Calculando...</h4>
+                        </div>
+                        <div class="bg-white bg-opacity-20 p-2 rounded-3">
+                            <i data-lucide="alert-triangle" style="width: 24px;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm overflow-hidden">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle m-0">
+                    <thead class="bg-light border-bottom">
+                        <tr>
+                            <th class="ps-4">Código</th>
+                            <th>Nombre del Artículo</th>
+                            <th>Categoría</th>
+                            <th class="text-center">Stock Actual</th>
+                            <th class="text-center">Ideal</th>
+                            <th>Estado</th>
+                            <th class="text-end pe-4">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in inventario %}
+                        <tr>
+                            <td class="ps-4 small text-muted">{{ item.producto.codigo }}</td>
+                            <td>
+                                <div class="fw-bold text-dark">{{ item.producto.nombre }}</div>
+                                <div class="small text-muted">{{ item.producto.subcategoria|default:"Sin subcategoría" }}</div>
+                            </td>
+                            <td><span class="badge bg-soft-secondary text-secondary border px-2 py-1">{{ item.producto.get_categoria_display }}</span></td>
+                            <td class="text-center">
+                                <span class="fw-bold {% if item.stock_actual <= item.producto.stock_minimo %}text-danger{% else %}text-success{% endif %}">
+                                    {{ item.stock_actual }}
+                                </span>
+                            </td>
+                            <td class="text-center text-muted">{{ item.producto.stock_ideal }}</td>
+                            <td>
+                                {% if item.stock_actual <= item.producto.stock_minimo %}
+                                    <span class="badge bg-danger rounded-pill px-3">Reposición</span>
+                                {% else %}
+                                    <span class="badge bg-success rounded-pill px-3">Ok</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end pe-4">
+                                <div class="dropdown">
+                                    <button class="btn btn-sm btn-light border dropdown-toggle no-caret" type="button" data-bs-toggle="dropdown">
+                                        <i data-lucide="more-vertical" style="width: 16px;"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end shadow border-0">
+                                        {% if not es_historial %}
+                                        <li><a class="dropdown-item py-2" href="{% url 'producto_update' item.producto.id %}"><i data-lucide="edit-3" class="me-2 text-primary" style="width: 16px;"></i> Editar</a></li>
+                                        <li><a class="dropdown-item py-2 text-danger" href="{% url 'producto_delete' item.producto.id %}" onclick="return confirm('¿Archivar este producto?')"><i data-lucide="archive" class="me-2" style="width: 16px;"></i> Archivar</a></li>
+                                        {% else %}
+                                        <li><a class="dropdown-item py-2 text-success" href="{% url 'producto_restore' item.producto.id %}"><i data-lucide="rotate-ccw" class="me-2" style="width: 16px;"></i> Restaurar</a></li>
+                                        {% endif %}
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center text-muted py-5 bg-white">
+                                <div class="py-4">
+                                    <i data-lucide="package-search" class="mb-3 d-block mx-auto opacity-25" style="width: 64px;"></i>
+                                    <p class="fs-5">No se encontraron artículos</p>
+                                    <a href="{% url 'producto_create' %}" class="btn btn-sm btn-primary">Registrar el primero</a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
 </div>
 
-<div class="card p-4">
-    <div class="table-responsive">
-        <table class="table table-hover align-middle">
-            <thead class="table-light">
-                <tr>
-                    <th>Producto</th>
-                    <th>Categoría</th>
-                    <th>Stock Actual</th>
-                    <th>S. Mínimo</th>
-                    <th>Estado</th>
-                    <th>Última Act.</th>
-                    <th>Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in inventario %}
-                <tr>
-                    <td class="fw-bold">{{ item.producto.nombre }}</td>
-                    <td><span class="badge bg-secondary">{{ item.producto.get_categoria_display }}</span></td>
-                    <td class="text-center">{{ item.stock_actual }}</td>
-                    <td class="text-center">{{ item.producto.stock_minimo }}</td>
-                    <td>
-                        {% if item.stock_actual <= item.producto.stock_minimo %}
-                            <span class="badge bg-danger">Agotándose</span>
-                        {% else %}
-                            <span class="badge bg-success">Disponible</span>
-                        {% endif %}
-                    </td>
-                    <td>{{ item.ultima_actualizacion|date:"d/m/Y" }}</td>
-                    <td>
-                        <div class="d-flex gap-2">
-                            {% if not es_historial %}
-                            <a href="{% url 'producto_update' item.producto.id %}" class="btn btn-sm btn-light" title="Editar"><i data-lucide="edit-3" style="width: 16px;"></i></a>
-                            <a href="{% url 'producto_delete' item.producto.id %}" class="btn btn-sm btn-light text-danger" title="Mover al Historial" onclick="return confirm('¿Está seguro de enviar este producto al historial?')"><i data-lucide="archive" style="width: 16px;"></i></a>
-                            {% else %}
-                            <a href="{% url 'producto_restore' item.producto.id %}" class="btn btn-sm btn-success" title="Restaurar"><i data-lucide="rotate-ccw" style="width: 16px;"></i></a>
-                            {% endif %}
-                        </div>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="6" class="text-center text-muted py-5">
-                        <i data-lucide="package-search" class="mb-3 d-block mx-auto" style="width: 48px; opacity: 0.5;"></i>
-                        {% if es_historial %} No hay registros en el historial. {% else %} No hay movimientos de inventario registrados. {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
+<style>
+    .bg-gradient-blue { background: linear-gradient(135deg, #0d6efd 0%, #00d2ff 100%); }
+    .bg-gradient-orange { background: linear-gradient(135deg, #fd7e14 0%, #ffc107 100%); }
+    .bg-soft-secondary { background-color: #f8f9fa; }
+    .no-caret::after { display: none; }
+    .ls-1 { letter-spacing: 1px; }
+    .nav-pills .nav-link.active { background-color: rgba(13, 110, 253, 0.1); color: #0d6efd !important; border-left: 3px solid #0d6efd; border-radius: 0; }
+    .nav-pills .nav-link { border-left: 3px solid transparent; border-radius: 0; transition: all 0.2s; }
+    .nav-pills .nav-link:hover:not(.active) { background-color: #f1f3f5; border-left-color: #dee2e6; }
+</style>
 {% endblock %}
