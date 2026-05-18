@@ -155,7 +155,7 @@
             <!-- Botón de Cerrar para Móviles -->
             <button type="button" class="btn-close btn-close-white d-lg-none position-absolute" style="top: 15px; right: 15px; z-index: 1010;" id="close-sidebar" aria-label="Close"></button>
             
-            <div class="logo mb-4 d-flex flex-column align-items-center text-center px-2">
+            <div class="logo mb-4 d-flex flex-column align-items-center text-center px-2 pt-3">
                 {% if empresa_config.logo %}
                     <img src="{{ empresa_config.logo.url }}" alt="Logo" class="mb-2 shadow-sm" 
                          style="max-height: 80px; max-width: 100%; width: auto; object-fit: {% if empresa_config.forma_logo == 'CIRCULAR' %}cover{% else %}contain{% endif %}; 
