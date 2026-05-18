@@ -124,6 +124,8 @@
                 width: 250px;
             }
             #main-content, .navbar { margin-left: 0; }
+            .navbar { padding: 0.75rem 1rem; }
+            #main-content { padding: 1.25rem 1rem; }
             #sidebar.show { left: 0; box-shadow: 5px 0 25px rgba(0, 0, 0, 0.15); }
         }
 
@@ -144,6 +146,44 @@
         #sidebar-overlay.show {
             opacity: 1;
             visibility: visible;
+        }
+
+        /* Optimizaciones Responsivas Globales para Computadoras Pequeñas y Móviles */
+        .d-flex.justify-content-between.align-items-center.mb-4 {
+            flex-wrap: wrap !important;
+            gap: 1rem !important;
+        }
+
+        @media (max-width: 768px) {
+            .d-flex.justify-content-between.align-items-center.mb-4 {
+                flex-direction: column !important;
+                align-items: flex-start !important;
+                gap: 0.75rem !important;
+            }
+            .d-flex.justify-content-between.align-items-center.mb-4 > div,
+            .d-flex.justify-content-between.align-items-center.mb-4 > .d-flex,
+            .d-flex.justify-content-between.align-items-center.mb-4 > div.d-flex,
+            .d-flex.justify-content-between.align-items-center.mb-4 > .d-flex.gap-2,
+            .d-flex.justify-content-between.align-items-center.mb-4 > .d-flex.flex-wrap {
+                width: 100% !important;
+                flex-direction: column !important;
+                align-items: stretch !important;
+                gap: 0.5rem !important;
+            }
+            .d-flex.justify-content-between.align-items-center.mb-4 > .d-flex > a,
+            .d-flex.justify-content-between.align-items-center.mb-4 > .d-flex > button,
+            .d-flex.justify-content-between.align-items-center.mb-4 > .d-flex > form,
+            .d-flex.justify-content-between.align-items-center.mb-4 > div.d-flex > a,
+            .d-flex.justify-content-between.align-items-center.mb-4 > div.d-flex > button,
+            .d-flex.justify-content-between.align-items-center.mb-4 > div.d-flex > form {
+                width: 100% !important;
+                justify-content: center !important;
+            }
+            .d-flex.justify-content-between.align-items-center.mb-4 > .d-flex > form > input,
+            .d-flex.justify-content-between.align-items-center.mb-4 > div.d-flex > form > input {
+                max-width: none !important;
+                flex-grow: 1 !important;
+            }
         }
     </style>
     {% block extra_css %}{% endblock %}
@@ -231,7 +271,7 @@
                 <div class="ms-auto d-flex align-items-center">
                     <div class="dropdown">
                         <a href="#" class="d-flex align-items-center text-decoration-none dropdown-toggle text-dark" data-bs-toggle="dropdown">
-                            <div class="me-2 text-end">
+                            <div class="me-2 text-end d-none d-md-block">
                                 <small class="d-block fw-bold text-muted">{% if request.user.is_superuser %}Admin{% else %}Usuario{% endif %}</small>
                                 <span>{{ request.user.get_full_name|default:request.user.username }}</span>
                             </div>
