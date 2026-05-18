@@ -20,6 +20,22 @@
             <h5 class="fw-bold mb-4">Datos del Cliente</h5>
             <form method="post">
                 {% csrf_token %}
+                
+                {% if form.errors %}
+                <div class="alert alert-danger shadow-sm mb-4">
+                    <h6 class="fw-bold mb-2"><i data-lucide="alert-circle" class="me-2" style="width: 18px;"></i>Por favor, corrija los siguientes errores:</h6>
+                    <ul class="mb-0 small">
+                        {% for field in form %}
+                            {% if field.errors %}
+                                <li><strong>{{ field.label }}:</strong> {{ field.errors|striptags }}</li>
+                            {% endif %}
+                        {% endfor %}
+                        {% if form.non_field_errors %}
+                            <li>{{ form.non_field_errors|striptags }}</li>
+                        {% endif %}
+                    </ul>
+                </div>
+                {% endif %}
                 <div class="row g-3">
                     <div class="col-md-4">
                         <label class="form-label fw-bold small text-muted">Tipo Documento</label>

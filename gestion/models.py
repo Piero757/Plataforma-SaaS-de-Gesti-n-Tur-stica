@@ -38,6 +38,13 @@ class Proveedor(models.Model):
     def __str__(self):
         return self.razon_social
 
+class CategoriaPersonalizada(models.Model):
+    nombre = models.CharField(max_length=100, unique=True)
+    modulo = models.CharField(max_length=20, default='RESTAURANTE')
+    
+    def __str__(self):
+        return self.nombre
+
 class Producto(models.Model):
     CATEGORIAS = [
         ('TURISMO', 'Servicio Turístico'),
@@ -64,7 +71,7 @@ class Producto(models.Model):
         ('LICOR', 'Licor / Trago'),
         ('OTRO', 'Otro'),
     ]
-    subcategoria = models.CharField(max_length=100, choices=SUBCATEGORIAS_RESTAURANTE, default='OTRO', blank=True, null=True)
+    subcategoria = models.CharField(max_length=100, default='OTRO', blank=True, null=True)
     imagen = models.ImageField(upload_to='productos/', blank=True, null=True)
     impuesto = models.CharField(max_length=20, choices=IMPUESTOS, default='IGV')
     precio_compra = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
@@ -83,6 +90,10 @@ class Inventario(models.Model):
     producto = models.OneToOneField(Producto, on_delete=models.CASCADE)
     stock_actual = models.IntegerField(default=0)
     ultima_actualizacion = models.DateTimeField(auto_now=True)
+
+    @property
+    def valoracion(self):
+        return float(self.stock_actual) * float(self.producto.precio_venta)
 
     def __str__(self):
         return f"{self.producto.nombre} - Stock: {self.stock_actual}"
@@ -322,6 +333,7 @@ class PedidoHabitacion(models.Model):
     subtotal = models.DecimalField(max_digits=10, decimal_places=2)
     fecha_pedido = models.DateTimeField(auto_now_add=True)
     pagado = models.BooleanField(default=False)
+    observaciones = models.TextField(blank=True, null=True)
 
     def __str__(self):
         return f"Pedido {self.id} - Hab. {self.reserva.habitacion.numero}"

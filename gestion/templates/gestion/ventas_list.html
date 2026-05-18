@@ -8,11 +8,24 @@
         <h3 class="fw-bold mb-1">Registro de Ventas</h3>
         <p class="text-muted">Gestione sus ingresos y comprobantes electrónicos</p>
     </div>
-    <div class="d-flex gap-2">
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+        <!-- Formulario de Búsqueda por Fecha -->
+        <form method="get" class="d-flex align-items-center me-2">
+            <input type="date" name="fecha" class="form-control form-control-sm border-primary me-2" value="{{ fecha_filtro|default:'' }}" style="max-width: 150px;">
+            <button type="submit" class="btn btn-sm btn-primary d-flex align-items-center gap-1">
+                <i data-lucide="search" style="width: 14px;"></i> Buscar
+            </button>
+            {% if fecha_filtro %}
+            <a href="{% url 'ventas_list' %}" class="btn btn-sm btn-light ms-1" title="Limpiar Filtro">
+                <i data-lucide="x" style="width: 14px;"></i>
+            </a>
+            {% endif %}
+        </form>
+
         <button type="button" class="btn btn-outline-primary d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#modalImportar">
             <i data-lucide="upload" style="width: 18px;"></i> Importar
         </button>
-        <a href="{% url 'exportar_ventas_excel' %}" class="btn btn-light-success d-flex align-items-center gap-2">
+        <a href="{% url 'exportar_ventas_excel' %}{% if fecha_filtro %}?fecha={{ fecha_filtro }}{% endif %}" class="btn btn-light-success d-flex align-items-center gap-2">
             <i data-lucide="download" style="width: 18px;"></i> Exportar Excel
         </a>
         <a href="{% url 'venta_create' %}" class="btn btn-primary d-flex align-items-center gap-2">

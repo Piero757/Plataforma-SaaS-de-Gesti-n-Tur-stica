@@ -41,12 +41,20 @@
                         <label class="form-label fw-bold small text-muted">Correo Electrónico</label>
                         {{ form.email }}
                     </div>
-                    <div class="col-12">
+                    <div class="col-md-6">
                         <div class="form-check form-switch">
                             {{ form.is_staff }}
-                            <label class="form-check-label fw-bold text-dark" for="{{ form.is_staff.id_for_label }}">Dar permisos de Administrador</label>
+                            <label class="form-check-label fw-bold text-dark" for="{{ form.is_staff.id_for_label }}">Acceso al Panel (Staff)</label>
                         </div>
-                        <small class="text-muted d-block mt-1">Los administradores pueden acceder a todos los módulos y crear otros usuarios.</small>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-check form-switch">
+                            {{ form.is_superuser }}
+                            <label class="form-check-label fw-bold text-dark" for="{{ form.is_superuser.id_for_label }}">Administrador Total</label>
+                        </div>
+                    </div>
+                    <div class="col-12 mt-0">
+                        <small class="text-muted d-block">Los administradores totales pueden gestionar otros usuarios y configuraciones críticas.</small>
                     </div>
                 </div>
                 <div class="mt-5 d-flex gap-2">

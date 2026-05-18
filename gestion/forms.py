@@ -1,5 +1,6 @@
 from django import forms
 from django.contrib.auth.models import User
+from django.contrib.auth.forms import UserCreationForm
 from .models import (
     Cliente, Proveedor, Producto, Compra, Venta, RegistroServicio, 
     Inventario, ConfiguracionEmpresa, Habitacion, Mesa, Reserva, PedidoHabitacion,
@@ -83,6 +84,31 @@ class ProductoForm(forms.ModelForm):
                 self.fields['stock'].initial = self.instance.inventario.stock_actual
             except:
                 self.fields['stock'].initial = 0
+                
+        # Cargar subcategorias dinámicas
+        from .models import CategoriaPersonalizada
+        try:
+            categorias_extra = list(CategoriaPersonalizada.objects.values_list('nombre', 'nombre'))
+        except:
+            categorias_extra = []
+            
+        base_choices = [
+            ('', '--- Seleccione ---'),
+            ('ENTRADA', 'Entrada'),
+            ('PLATO_FONDO', 'Plato de Fondo'),
+            ('POSTRE', 'Postre'),
+            ('BEBIDA', 'Bebida'),
+            ('LICOR', 'Licor / Trago'),
+            ('OTRO', 'Otro'),
+        ]
+        
+        # Eliminar duplicados
+        base_keys = [k for k, v in base_choices]
+        for key, val in categorias_extra:
+            if key not in base_keys:
+                base_choices.append((key, val))
+                
+        self.fields['subcategoria'].widget = forms.Select(choices=base_choices, attrs={'class': 'form-select'})
 
 class CompraForm(forms.ModelForm):
     class Meta:
@@ -129,7 +155,7 @@ class UsuarioCreateForm(forms.ModelForm):
 
     class Meta:
         model = User
-        fields = ['username', 'email', 'first_name', 'last_name', 'is_staff']
+        fields = ['username', 'email', 'first_name', 'last_name', 'is_staff', 'is_superuser']
         widgets = {
             'username': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: jperez'}),
             'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'jperez@turismo.com'}),
@@ -143,6 +169,17 @@ class UsuarioCreateForm(forms.ModelForm):
         if commit:
             user.save()
         return user
+
+class UserProfileForm(forms.ModelForm):
+    class Meta:
+        model = User
+        fields = ['username', 'email', 'first_name', 'last_name']
+        widgets = {
+            'username': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Usuario'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'email@ejemplo.com'}),
+            'first_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre'}),
+            'last_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Apellido'}),
+        }
 
 class ConfiguracionEmpresaForm(forms.ModelForm):
     class Meta:
@@ -215,12 +252,18 @@ class ReservaForm(forms.ModelForm):
 class PedidoHabitacionForm(forms.ModelForm):
     class Meta:
         model = PedidoHabitacion
-        fields = ['producto', 'cantidad', 'precio_unitario']
+        fields = ['producto', 'cantidad', 'precio_unitario', 'observaciones']
         widgets = {
             'producto': forms.Select(attrs={'class': 'form-select'}),
             'cantidad': forms.NumberInput(attrs={'class': 'form-control', 'min': 1}),
             'precio_unitario': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'observaciones': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Ej: De 4pm a 6pm, o detalles especiales...'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['producto'].queryset = Producto.objects.filter(activo=True)
+        self.fields['producto'].label_from_instance = lambda obj: f"{obj.nombre} - S/ {obj.precio_venta}"
 
 class DetalleCompraForm(forms.ModelForm):
     class Meta:
@@ -241,3 +284,21 @@ class CuotaCompraForm(forms.ModelForm):
             'monto': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'fecha_vencimiento': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
         }
+
+class RegistrationForm(UserCreationForm):
+    email = forms.EmailField(required=True, widget=forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'email@ejemplo.com'}))
+    first_name = forms.CharField(required=True, widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre'}))
+    last_name = forms.CharField(required=True, widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Apellido'}))
+
+    class Meta:
+        model = User
+        fields = ['username', 'first_name', 'last_name', 'email']
+        widgets = {
+            'username': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre de usuario'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            if not isinstance(field.widget, forms.CheckboxInput):
+                field.widget.attrs.update({'class': 'form-control'})

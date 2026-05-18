@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+
+{% block title %}Mi Perfil | TurismoERP{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <h3 class="fw-bold mb-1">Mi Perfil</h3>
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/" class="text-decoration-none">Dashboard</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Ajustes de Cuenta</li>
+        </ol>
+    </nav>
+</div>
+
+<div class="row">
+    <div class="col-lg-4 mb-4">
+        <div class="card border-0 shadow-sm text-center p-4 h-100">
+            <div class="mb-4">
+                <img src="https://ui-avatars.com/api/?name={{ request.user.get_full_name|default:request.user.username }}&background=009ef7&color=fff&size=128" 
+                     class="rounded-circle shadow-sm border border-4 border-white" width="128" height="128">
+            </div>
+            <h4 class="fw-bold mb-1">{{ request.user.get_full_name|default:request.user.username }}</h4>
+            <p class="text-muted mb-4">{{ request.user.email }}</p>
+            
+            <div class="d-grid gap-2">
+                <a href="{% url 'password_change' %}" class="btn btn-outline-primary">
+                    <i data-lucide="key" class="me-2" style="width: 16px;"></i> Cambiar Contraseña
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm p-4">
+            <h5 class="fw-bold mb-4">Información de la Cuenta</h5>
+            <form method="post">
+                {% csrf_token %}
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold small text-muted">Nombre de Usuario</label>
+                        {{ form.username }}
+                        {% if form.username.errors %}
+                            <div class="text-danger small">{{ form.username.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold small text-muted">Correo Electrónico</label>
+                        {{ form.email }}
+                        {% if form.email.errors %}
+                            <div class="text-danger small">{{ form.email.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold small text-muted">Nombres</label>
+                        {{ form.first_name }}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold small text-muted">Apellidos</label>
+                        {{ form.last_name }}
+                    </div>
+                </div>
+                
+                <hr class="my-4 text-muted opacity-25">
+                
+                <div class="d-flex justify-content-end">
+                    <button type="submit" class="btn btn-primary px-5 py-2 fw-bold">
+                        <i data-lucide="save" class="me-2" style="width: 18px;"></i> Guardar Cambios
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -2,6 +2,15 @@
 
 {% block title %}{{ titulo }} | TurismoERP{% endblock %}
 
+{% block extra_css %}
+<!-- Tom Select CSS -->
+<link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
+<style>
+    .ts-control { border-radius: 0.375rem !important; }
+    .ts-wrapper.multi .ts-control > div { border-radius: 3px; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="row">
     <div class="col-12">
@@ -56,11 +65,19 @@
                 <!-- Detalle de Items -->
                 <div class="col-lg-8">
                     <div class="card shadow-sm border-0 h-100">
-                        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
                             <h5 class="fw-bold mb-0">Detalle de Productos / Items</h5>
-                            <button type="button" class="btn btn-sm btn-outline-primary" id="btn_add_item">
-                                <i data-lucide="plus"></i> Agregar Item
-                            </button>
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="input-group input-group-sm" style="max-width: 160px;">
+                                    <input type="number" id="bulk_item_count" class="form-control" value="5" min="1" max="50">
+                                    <button type="button" class="btn btn-outline-primary" id="btn_add_bulk">
+                                        <i data-lucide="plus-circle" class="me-1"></i> Agregar N
+                                    </button>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-primary" id="btn_add_item">
+                                    <i data-lucide="plus"></i> Agregar Item
+                                </button>
+                            </div>
                         </div>
                         <div class="card-body p-0">
                             <div class="table-responsive">
@@ -107,7 +124,7 @@
             <select name="producto[]" class="form-select select-product" required>
                 <option value="">Seleccione producto...</option>
                 {% for p in productos %}
-                <option value="{{ p.id }}" data-precio="{{ p.precio_compra }}">{{ p.nombre }}</option>
+                <option value="{{ p.id }}" data-precio="{{ p.precio_compra }}">{{ p.nombre }} [Cód: {{ p.codigo }}] (Stock Act: {{ p.inventario.stock_actual }}) - S/ {{ p.precio_compra }}</option>
                 {% endfor %}
             </select>
         </td>
@@ -141,6 +158,8 @@
 {% endblock %}
 
 {% block extra_js %}
+<!-- Tom Select JS -->
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
 <script>
     const btnAddItem = document.getElementById('btn_add_item');
     const tableItems = document.getElementById('table_items').getElementsByTagName('tbody')[0];
@@ -178,11 +197,31 @@
         const clone = rowTemplate.content.cloneNode(true);
         const row = clone.querySelector('tr');
         
-        row.querySelector('.select-product').addEventListener('change', function() {
-            const selected = this.options[this.selectedIndex];
-            const precio = selected.dataset.precio;
-            row.querySelector('.input-price').value = precio;
-            calculateRow(row);
+        const selectElement = row.querySelector('.select-product');
+        const ts = new TomSelect(selectElement, {
+            create: false,
+            placeholder: "Buscar...",
+            render: {
+                option: function(item, escape) {
+                    const parts = item.text.split(' - S/ ');
+                    const name = parts[0];
+                    const price = parts[1] ? `S/ ${parts[1]}` : '';
+                    return `<div class="d-flex justify-content-between align-items-center w-100">
+                                <span>${escape(name)}</span>
+                                <span class="text-success fw-bold small ms-2">${escape(price)}</span>
+                            </div>`;
+                },
+                item: function(item, escape) {
+                    const parts = item.text.split(' - S/ ');
+                    return `<div>${escape(parts[0])}</div>`;
+                }
+            },
+            onChange: function(value) {
+                const selected = selectElement.options[selectElement.selectedIndex];
+                const precio = selected.dataset.precio;
+                row.querySelector('.input-price').value = precio;
+                calculateRow(row);
+            }
         });
 
         row.querySelector('.input-qty').addEventListener('input', () => calculateRow(row));
@@ -226,9 +265,20 @@
         }
     });
 
-    numCuotasInput.addEventListener('input', recalculateCuotas);
+    const btnAddItem = document.getElementById('btn_add_item');
+    const btnAddBulk = document.getElementById('btn_add_bulk');
+    const bulkItemCountInput = document.getElementById('bulk_item_count');
 
     btnAddItem.addEventListener('click', addItem);
+    
+    if (btnAddBulk && bulkItemCountInput) {
+        btnAddBulk.addEventListener('click', function() {
+            const count = parseInt(bulkItemCountInput.value) || 5;
+            for (let i = 0; i < count; i++) {
+                addItem();
+            }
+        });
+    }
 
     // Agregar un item inicial
     addItem();

@@ -8,10 +8,14 @@ urlpatterns = [
     path('modulo/cambiar/', views.cambiar_modulo, name='cambiar_modulo'),
     
     # Usuarios
+    path('register/', views.register_view, name='register'),
     path('usuarios/', views.usuarios_list, name='usuarios_list'),
     path('usuarios/nuevo/', views.usuario_create, name='usuario_create'),
     path('usuarios/editar/<int:pk>/', views.usuario_update, name='usuario_update'),
     path('usuarios/estado/<int:pk>/', views.usuario_toggle_status, name='usuario_toggle_status'),
+    path('usuarios/admin/<int:pk>/', views.usuario_toggle_admin, name='usuario_toggle_admin'),
+    path('perfil/', views.perfil_view, name='perfil'),
+    path('perfil/password/', views.CustomPasswordChangeView.as_view(), name='password_change'),
     
     # Clientes
     path('clientes/', views.clientes_list, name='clientes_list'),
@@ -36,6 +40,9 @@ urlpatterns = [
     path('productos/eliminar/<int:pk>/', views.producto_delete, name='producto_delete'),
     path('inventario/historial/', views.inventario_historial, name='inventario_historial'),
     path('productos/restaurar/<int:pk>/', views.producto_restore, name='producto_restore'),
+    
+    path('categorias/', views.categorias_list, name='categorias_list'),
+    path('categorias/eliminar/<int:pk>/', views.categoria_delete, name='categoria_delete'),
     
     # Ventas
     path('ventas/', views.ventas_list, name='ventas_list'),
@@ -66,6 +73,11 @@ urlpatterns = [
     path('reportes/', views.reportes_view, name='reportes'),
     path('configuracion/', views.configuracion_empresa, name='configuracion_empresa'),
     path('reportes/pdf/', views.reporte_general_pdf, name='reporte_general_pdf'),
+    path('reportes/ventas-generales/excel/', views.exportar_ventas_generales_excel, name='exportar_ventas_generales_excel'),
+    path('reportes/ventas-generales/pdf/', views.exportar_ventas_generales_pdf, name='exportar_ventas_generales_pdf'),
+    path('reportes/compras/excel/', views.exportar_compras_excel, name='exportar_compras_excel'),
+    path('reportes/usuarios/excel/', views.exportar_usuarios_excel, name='exportar_usuarios_excel'),
+    path('reportes/inventario/excel/', views.exportar_inventario_excel, name='exportar_inventario_excel'),
     
     # Hotel Management
     path('habitaciones/', views.habitaciones_list, name='habitaciones_list'),

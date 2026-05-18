@@ -9,13 +9,18 @@ from django.contrib import messages
 from .models import (
     Venta, Producto, Inventario, RegistroServicio, Cliente, Proveedor, 
     Compra, FacturaElectronica, DetalleVenta, ConfiguracionEmpresa,
-    Habitacion, Mesa, Reserva, PedidoHabitacion, DetalleCompra, CuotaCompra
+    Habitacion, Mesa, Reserva, PedidoHabitacion, DetalleCompra, CuotaCompra,
+    CategoriaPersonalizada
 )
+from django.contrib.auth import login
 from .forms import (
-    ClienteForm, UsuarioCreateForm, ProveedorForm, ProductoForm, 
+    ClienteForm, UsuarioCreateForm, RegistrationForm, ProveedorForm, ProductoForm, 
     CompraForm, VentaForm, ServicioForm, ConfiguracionEmpresaForm,
-    HabitacionForm, MesaForm, ReservaForm, PedidoHabitacionForm, DetalleCompraForm, CuotaCompraForm
+    HabitacionForm, MesaForm, ReservaForm, PedidoHabitacionForm, DetalleCompraForm, CuotaCompraForm,
+    UserProfileForm
 )
+from django.contrib.auth.views import PasswordChangeView
+from django.urls import reverse_lazy
 import openpyxl
 import csv
 from datetime import datetime
@@ -133,6 +138,68 @@ def usuario_toggle_status(request, pk):
         usuario.save()
         status = "activado" if usuario.is_active else "desactivado"
         messages.info(request, f"Usuario {status} correctamente.")
+    return redirect('usuarios_list')
+
+@login_required
+def perfil_view(request):
+    if request.method == 'POST':
+        form = UserProfileForm(request.POST, instance=request.user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Perfil actualizado correctamente.")
+            return redirect('perfil')
+    else:
+        form = UserProfileForm(instance=request.user)
+    return render(request, 'gestion/perfil.html', {'form': form, 'titulo': 'Mi Perfil'})
+
+class CustomPasswordChangeView(PasswordChangeView):
+    template_name = 'gestion/perfil_password.html'
+    success_url = reverse_lazy('perfil')
+    
+    def form_valid(self, form):
+        messages.success(self.request, "Contraseña actualizada correctamente.")
+        return super().form_valid(form)
+
+def register_view(request):
+    if request.user.is_authenticated:
+        return redirect('dashboard')
+    
+    empresa_config = ConfiguracionEmpresa.objects.first()
+    
+    if request.method == 'POST':
+        form = RegistrationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            login(request, user)
+            messages.success(request, f"¡Bienvenido {user.username}! Te has registrado correctamente.")
+            return redirect('dashboard')
+    else:
+        form = RegistrationForm()
+    
+    return render(request, 'registration/register.html', {
+        'form': form,
+        'empresa_config': empresa_config,
+        'titulo': 'Registrarse'
+    })
+
+@login_required
+def usuario_toggle_admin(request, pk):
+    if not request.user.is_superuser:
+        messages.error(request, "No tienes permisos para realizar esta acción.")
+        return redirect('usuarios_list')
+        
+    usuario = get_object_or_404(User, pk=pk)
+    if usuario == request.user:
+        messages.error(request, "No puedes cambiar tu propio nivel de acceso.")
+    else:
+        # Toggle both is_staff and is_superuser for full admin access
+        is_admin = not (usuario.is_staff and usuario.is_superuser)
+        usuario.is_staff = is_admin
+        usuario.is_superuser = is_admin
+        usuario.save()
+        status = "promovido a Administrador" if is_admin else "cambiado a Operador"
+        messages.success(request, f"Usuario {usuario.username} {status}.")
+        
     return redirect('usuarios_list')
 
 from django.db.models import Q
@@ -301,8 +368,17 @@ def proveedor_restore(request, pk):
 @login_required
 def inventario_list(request):
     modulo = request.session.get('modulo', 'HOTEL')
-    inventario = Inventario.objects.filter(producto__activo=True, producto__modulo=modulo)
-    return render(request, 'gestion/inventario_list.html', {'inventario': inventario})
+    inventario = Inventario.objects.filter(producto__activo=True, producto__modulo=modulo).order_by('producto__subcategoria', 'producto__nombre')
+    
+    # Stock critico: actual <= minimo
+    stock_critico_count = inventario.filter(stock_actual__lte=F('producto__stock_minimo')).count()
+    
+    context = {
+        'inventario': inventario,
+        'total_articulos': inventario.count(),
+        'stock_critico_count': stock_critico_count,
+    }
+    return render(request, 'gestion/inventario_list.html', context)
 
 @login_required
 def inventario_historial(request):
@@ -348,13 +424,21 @@ def producto_create(request):
                 return redirect('carta_lista')
             return redirect('inventario_list')
     else:
-        initial = {}
+        # Generar código sugerido (encuentra el número más bajo disponible)
+        nuevo_numero = 1
+        nuevo_codigo = f"prod-{nuevo_numero:03d}"
+        while Producto.objects.filter(codigo__iexact=nuevo_codigo).exists():
+            nuevo_numero += 1
+            nuevo_codigo = f"prod-{nuevo_numero:03d}"
+            
+        initial = {'codigo': nuevo_codigo}
         if is_restaurante:
-            initial = {'categoria': 'RESTAURANTE', 'modulo': 'RESTAURANTE'}
+            initial.update({'categoria': 'RESTAURANTE', 'modulo': 'RESTAURANTE'})
         form = ProductoForm(initial=initial)
     
     template = 'gestion/producto_form_restaurante.html' if is_restaurante else 'gestion/producto_form.html'
     return render(request, template, {'form': form, 'titulo': 'Nuevo Artículo'})
+
 
 @login_required
 def producto_update(request, pk):
@@ -412,13 +496,44 @@ def producto_restore(request, pk):
     messages.success(request, "Producto restaurado.")
     return redirect('inventario_list')
 
+# --- CATEGORIAS PERSONALIZADAS ---
+@login_required
+def categorias_list(request):
+    modulo = request.session.get('modulo', 'RESTAURANTE')
+    categorias = CategoriaPersonalizada.objects.filter(modulo=modulo)
+    
+    if request.method == 'POST':
+        nombre = request.POST.get('nombre')
+        if nombre:
+            CategoriaPersonalizada.objects.get_or_create(nombre=nombre, modulo=modulo)
+            messages.success(request, "Categoría creada correctamente.")
+        return redirect('categorias_list')
+        
+    return render(request, 'gestion/categorias_list.html', {'categorias': categorias})
+
+@login_required
+def categoria_delete(request, pk):
+    cat = get_object_or_404(CategoriaPersonalizada, pk=pk)
+    cat.delete()
+    messages.success(request, "Categoría eliminada.")
+    return redirect('categorias_list')
+
 # --- VENTAS ---
 
 @login_required
 def ventas_list(request):
     modulo = request.session.get('modulo', 'HOTEL')
     ventas = Venta.objects.filter(modulo=modulo).order_by('-fecha')
-    return render(request, 'gestion/ventas_list.html', {'ventas': ventas})
+    
+    # Filtro por fecha
+    fecha_filtro = request.GET.get('fecha')
+    if fecha_filtro:
+        ventas = ventas.filter(fecha__date=fecha_filtro)
+        
+    return render(request, 'gestion/ventas_list.html', {
+        'ventas': ventas,
+        'fecha_filtro': fecha_filtro
+    })
 
 @login_required
 def venta_create(request):
@@ -676,7 +791,13 @@ def compra_restore(request, pk):
 def servicios_list(request):
     modulo = request.session.get('modulo', 'HOTEL')
     servicios = RegistroServicio.objects.filter(modulo=modulo).order_by('-fecha')
-    return render(request, 'gestion/servicios_list.html', {'servicios': servicios})
+    catalogo = Producto.objects.filter(categoria__in=['TURISMO', 'HOSPEDAJE'], activo=True).order_by('nombre')
+    
+    return render(request, 'gestion/servicios_list.html', {
+        'servicios': servicios,
+        'catalogo': catalogo,
+        'titulo': 'Gestión de Servicios'
+    })
 
 @login_required
 def servicio_create(request):
@@ -735,6 +856,7 @@ def reportes_view(request):
     usuario_id = request.GET.get('usuario')
     periodo = request.GET.get('periodo', 'mes') # dia, semana, mes
     
+    # 1. Ventas QuerySet
     ventas_qs = Venta.objects.all()
     servicios_qs = RegistroServicio.objects.all()
     
@@ -746,7 +868,10 @@ def reportes_view(request):
         servicios_qs = servicios_qs.filter(fecha__date__lte=fecha_fin)
     if usuario_id and usuario_id != 'Todos':
         ventas_qs = ventas_qs.filter(usuario_id=usuario_id)
-    
+        
+    total_ventas_monto = ventas_qs.aggregate(Sum('total'))['total__sum'] or 0
+    cantidad_ventas = ventas_qs.count()
+
     # --- AGRUPACIÓN DE VENTAS ---
     from django.db.models.functions import TruncDay, TruncWeek, TruncMonth
     
@@ -787,12 +912,65 @@ def reportes_view(request):
         total_invertido=Sum('venta__total')
     ).order_by('-total_invertido')[:10]
     
+    # 2. Compras QuerySet
+    compras_qs = Compra.objects.filter(activo=True)
+    if fecha_inicio:
+        compras_qs = compras_qs.filter(fecha__gte=fecha_inicio)
+    if fecha_fin:
+        compras_qs = compras_qs.filter(fecha__lte=fecha_fin)
+        
+    total_compras_monto = compras_qs.aggregate(Sum('total'))['total__sum'] or 0
+    cantidad_compras = compras_qs.count()
+
+    # 3. Reporte de Usuarios (Vendedores)
+    usuarios_report = []
+    for u in User.objects.all():
+        ventas_u = Venta.objects.filter(usuario=u)
+        if fecha_inicio:
+            ventas_u = ventas_u.filter(fecha__date__gte=fecha_inicio)
+        if fecha_fin:
+            ventas_u = ventas_u.filter(fecha__date__lte=fecha_fin)
+        tot_val = ventas_u.aggregate(Sum('total'))['total__sum'] or 0
+        cnt_val = ventas_u.count()
+        if cnt_val > 0 or tot_val > 0:
+            usuarios_report.append({
+                'user': u,
+                'num_ventas': cnt_val,
+                'total_vendido': tot_val,
+                'promedio_venta': float(tot_val / cnt_val) if cnt_val > 0 else 0.0
+            })
+    usuarios_report.sort(key=lambda x: x['total_vendido'], reverse=True)
+
+    # 4. Reporte de Inventario Completo
+    inventario_report = Inventario.objects.select_related('producto').filter(producto__activo=True).order_by('producto__subcategoria', 'producto__nombre')
+    total_stock_items = inventario_report.aggregate(Sum('stock_actual'))['stock_actual__sum'] or 0
+    total_valoracion = sum(float(item.stock_actual) * float(item.producto.precio_venta) for item in inventario_report)
+    
     context = {
+        # Ventas
         'sales_labels': json.dumps(sales_labels),
         'sales_data': json.dumps(sales_data),
         'services_labels': json.dumps(services_labels),
         'services_data': json.dumps(services_data),
         'clientes_top': clientes_top,
+        'ventas_list': ventas_qs.order_by('-fecha')[:100],
+        'total_ventas_monto': total_ventas_monto,
+        'cantidad_ventas': cantidad_ventas,
+        
+        # Compras
+        'compras_list': compras_qs.order_by('-fecha')[:100],
+        'total_compras_monto': total_compras_monto,
+        'cantidad_compras': cantidad_compras,
+        
+        # Usuarios
+        'usuarios_report': usuarios_report,
+        
+        # Inventario
+        'inventario_report': inventario_report,
+        'total_stock_items': total_stock_items,
+        'total_valoracion': total_valoracion,
+        
+        # Filtros
         'usuarios': User.objects.all(),
         'fecha_inicio': fecha_inicio,
         'fecha_fin': fecha_fin,
@@ -801,18 +979,410 @@ def reportes_view(request):
     }
     return render(request, 'gestion/reportes.html', context)
 
+
 @login_required
-def exportar_ventas_excel(request):
-    # ... (keeping existing code)
+def exportar_ventas_generales_excel(request):
+    fecha_inicio = request.GET.get('fecha_inicio')
+    fecha_fin = request.GET.get('fecha_fin')
+    
+    hotel_ventas = Venta.objects.filter(modulo='HOTEL')
+    restaurante_ventas = Venta.objects.filter(modulo='RESTAURANTE')
+    
+    if fecha_inicio:
+        hotel_ventas = hotel_ventas.filter(fecha__date__gte=fecha_inicio)
+        restaurante_ventas = restaurante_ventas.filter(fecha__date__gte=fecha_inicio)
+    if fecha_fin:
+        hotel_ventas = hotel_ventas.filter(fecha__date__lte=fecha_fin)
+        restaurante_ventas = restaurante_ventas.filter(fecha__date__lte=fecha_fin)
+        
+    hotel_ventas = hotel_ventas.order_by('fecha')
+    restaurante_ventas = restaurante_ventas.order_by('fecha')
+    
+    total_hotel = hotel_ventas.aggregate(Sum('total'))['total__sum'] or 0
+    total_restaurante = restaurante_ventas.aggregate(Sum('total'))['total__sum'] or 0
+    total_general = total_hotel + total_restaurante
+    
     response = HttpResponse(content_type='application/ms-excel')
-    response['Content-Disposition'] = 'attachment; filename="reporte_ventas.xlsx"'
-    # ... (omitting for brevity in instruction but I will include full logic in the tool call)
+    response['Content-Disposition'] = 'attachment; filename="ventas_generales_hotel_restaurante.xlsx"'
+    
     wb = openpyxl.Workbook()
     ws = wb.active
-    ws.title = "Ventas"
+    ws.title = "Ventas Generales"
+    
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    title_font = Font(name='Calibri', size=16, bold=True, color='FFFFFF')
+    header_font = Font(name='Calibri', size=11, bold=True, color='FFFFFF')
+    section_font = Font(name='Calibri', size=13, bold=True, color='000000')
+    bold_font = Font(name='Calibri', size=11, bold=True)
+    normal_font = Font(name='Calibri', size=11)
+    
+    title_fill = PatternFill(start_color='1F4E78', end_color='1F4E78', fill_type='solid')
+    hotel_header_fill = PatternFill(start_color='2C3E50', end_color='2C3E50', fill_type='solid')
+    rest_header_fill = PatternFill(start_color='27AE60', end_color='27AE60', fill_type='solid')
+    summary_header_fill = PatternFill(start_color='D35400', end_color='D35400', fill_type='solid')
+    zebra_fill = PatternFill(start_color='F2F4F4', end_color='F2F4F4', fill_type='solid')
+    
+    thin_border = Border(
+        left=Side(style='thin', color='CCCCCC'),
+        right=Side(style='thin', color='CCCCCC'),
+        top=Side(style='thin', color='CCCCCC'),
+        bottom=Side(style='thin', color='CCCCCC')
+    )
+    
+    # Title Block
+    ws.merge_cells('A1:I2')
+    title_cell = ws['A1']
+    title_cell.value = "REPORTE DE VENTAS GENERALES (HOTEL Y RESTAURANTE)"
+    title_cell.font = title_font
+    title_cell.fill = title_fill
+    title_cell.alignment = Alignment(horizontal='center', vertical='center')
+    
+    ws['A3'] = f"Generado el: {datetime.now().strftime('%d/%m/%Y %H:%M')}"
+    ws['A3'].font = bold_font
+    if fecha_inicio or fecha_fin:
+        ws['A4'] = f"Rango: {fecha_inicio or 'Inicio'} hasta {fecha_fin or 'Fin'}"
+        ws['A4'].font = bold_font
+        
+    # --- TABLE 1: HOTEL SALES ---
+    ws['A6'] = "CUADRO 1: VENTAS DE HOTEL"
+    ws['A6'].font = section_font
+    
+    headers = ['ID Venta', 'Fecha', 'Cliente', 'Tipo Comprobante', 'Serie-Número', 'Total (S/)', 'Vendedor', 'Forma Pago', 'Estado SUNAT']
+    
+    row_num = 8
+    for col_idx, header in enumerate(headers, 1):
+        cell = ws.cell(row=row_num, column=col_idx)
+        cell.value = header
+        cell.font = header_font
+        cell.fill = hotel_header_fill
+        cell.alignment = Alignment(horizontal='center')
+        cell.border = thin_border
+        
+    row_num += 1
+    start_row_hotel = row_num
+    for idx, v in enumerate(hotel_ventas):
+        ws.cell(row=row_num, column=1, value=v.id).alignment = Alignment(horizontal='center')
+        ws.cell(row=row_num, column=2, value=v.fecha.strftime('%d/%m/%Y %H:%M')).alignment = Alignment(horizontal='center')
+        ws.cell(row=row_num, column=3, value=v.cliente.nombre_razon_social)
+        ws.cell(row=row_num, column=4, value=v.tipo_comprobante).alignment = Alignment(horizontal='center')
+        ws.cell(row=row_num, column=5, value=f"{v.serie}-{v.numero}").alignment = Alignment(horizontal='center')
+        
+        c_tot = ws.cell(row=row_num, column=6, value=float(v.total))
+        c_tot.number_format = 'S/ #,##0.00'
+        c_tot.alignment = Alignment(horizontal='right')
+        
+        ws.cell(row=row_num, column=7, value=v.usuario.username)
+        ws.cell(row=row_num, column=8, value=v.forma_pago).alignment = Alignment(horizontal='center')
+        ws.cell(row=row_num, column=9, value=v.estado_sunat).alignment = Alignment(horizontal='center')
+        
+        for col_idx in range(1, 10):
+            c = ws.cell(row=row_num, column=col_idx)
+            c.font = normal_font
+            c.border = thin_border
+            if idx % 2 == 1:
+                c.fill = zebra_fill
+        row_num += 1
+        
+    end_row_hotel = row_num - 1
+    # Total Hotel Row
+    ws.merge_cells(start_row=row_num, start_column=1, end_row=row_num, end_column=5)
+    tot_label = ws.cell(row=row_num, column=1, value="TOTAL VENTAS HOTEL:")
+    tot_label.font = bold_font
+    tot_label.alignment = Alignment(horizontal='right')
+    
+    tot_val = ws.cell(row=row_num, column=6)
+    if hotel_ventas.exists():
+        tot_val.value = f"=SUM(F{start_row_hotel}:F{end_row_hotel})"
+    else:
+        tot_val.value = 0.00
+    tot_val.font = Font(name='Calibri', size=11, bold=True, color='0000FF')
+    tot_val.number_format = 'S/ #,##0.00'
+    tot_val.border = thin_border
+    
+    for col_idx in range(1, 10):
+        ws.cell(row=row_num, column=col_idx).border = thin_border
+        
+    # --- TABLE 2: RESTAURANTE SALES ---
+    row_num += 3
+    ws.cell(row=row_num, column=1, value="CUADRO 2: VENTAS DE RESTAURANTE").font = section_font
+    
+    row_num += 2
+    for col_idx, header in enumerate(headers[:-1], 1):
+        cell = ws.cell(row=row_num, column=col_idx)
+        cell.value = header
+        cell.font = header_font
+        cell.fill = rest_header_fill
+        cell.alignment = Alignment(horizontal='center')
+        cell.border = thin_border
+        
+    row_num += 1
+    start_row_rest = row_num
+    for idx, v in enumerate(restaurante_ventas):
+        ws.cell(row=row_num, column=1, value=v.id).alignment = Alignment(horizontal='center')
+        ws.cell(row=row_num, column=2, value=v.fecha.strftime('%d/%m/%Y %H:%M')).alignment = Alignment(horizontal='center')
+        ws.cell(row=row_num, column=3, value=v.cliente.nombre_razon_social)
+        ws.cell(row=row_num, column=4, value=v.tipo_comprobante).alignment = Alignment(horizontal='center')
+        ws.cell(row=row_num, column=5, value=f"{v.serie}-{v.numero}").alignment = Alignment(horizontal='center')
+        
+        c_tot = ws.cell(row=row_num, column=6, value=float(v.total))
+        c_tot.number_format = 'S/ #,##0.00'
+        c_tot.alignment = Alignment(horizontal='right')
+        
+        ws.cell(row=row_num, column=7, value=v.usuario.username)
+        ws.cell(row=row_num, column=8, value=v.forma_pago).alignment = Alignment(horizontal='center')
+        
+        for col_idx in range(1, 9):
+            c = ws.cell(row=row_num, column=col_idx)
+            c.font = normal_font
+            c.border = thin_border
+            if idx % 2 == 1:
+                c.fill = zebra_fill
+        row_num += 1
+        
+    end_row_rest = row_num - 1
+    # Total Restaurante Row
+    ws.merge_cells(start_row=row_num, start_column=1, end_row=row_num, end_column=5)
+    tot_label = ws.cell(row=row_num, column=1, value="TOTAL VENTAS RESTAURANTE:")
+    tot_label.font = bold_font
+    tot_label.alignment = Alignment(horizontal='right')
+    
+    tot_val = ws.cell(row=row_num, column=6)
+    if restaurante_ventas.exists():
+        tot_val.value = f"=SUM(F{start_row_rest}:F{end_row_rest})"
+    else:
+        tot_val.value = 0.00
+    tot_val.font = Font(name='Calibri', size=11, bold=True, color='27AE60')
+    tot_val.number_format = 'S/ #,##0.00'
+    tot_val.border = thin_border
+    
+    for col_idx in range(1, 9):
+        ws.cell(row=row_num, column=col_idx).border = thin_border
+        
+    # --- SUMMARY TABLE ---
+    row_num += 3
+    ws.merge_cells(start_row=row_num, start_column=1, end_row=row_num, end_column=3)
+    sum_header = ws.cell(row=row_num, column=1, value="RESUMEN GENERAL DE INGRESOS")
+    sum_header.font = header_font
+    sum_header.fill = summary_header_fill
+    sum_header.alignment = Alignment(horizontal='center')
+    
+    row_num += 1
+    ws.cell(row=row_num, column=1, value="Concepto").font = bold_font
+    ws.cell(row=row_num, column=1).border = thin_border
+    ws.cell(row=row_num, column=2, value="Total Acumulado").font = bold_font
+    ws.cell(row=row_num, column=2).alignment = Alignment(horizontal='right')
+    ws.cell(row=row_num, column=2).border = thin_border
+    
+    row_num += 1
+    ws.cell(row=row_num, column=1, value="Ventas Hotel").font = normal_font
+    ws.cell(row=row_num, column=1).border = thin_border
+    c_sh = ws.cell(row=row_num, column=2, value=float(total_hotel))
+    c_sh.number_format = 'S/ #,##0.00'
+    c_sh.alignment = Alignment(horizontal='right')
+    c_sh.border = thin_border
+    
+    row_num += 1
+    ws.cell(row=row_num, column=1, value="Ventas Restaurante").font = normal_font
+    ws.cell(row=row_num, column=1).border = thin_border
+    c_sr = ws.cell(row=row_num, column=2, value=float(total_restaurante))
+    c_sr.number_format = 'S/ #,##0.00'
+    c_sr.alignment = Alignment(horizontal='right')
+    c_sr.border = thin_border
+    
+    row_num += 1
+    ws.cell(row=row_num, column=1, value="TOTAL GENERAL").font = bold_font
+    ws.cell(row=row_num, column=1).border = thin_border
+    c_sg = ws.cell(row=row_num, column=2, value=float(total_general))
+    c_sg.font = bold_font
+    c_sg.number_format = 'S/ #,##0.00'
+    c_sg.alignment = Alignment(horizontal='right')
+    c_sg.border = thin_border
+    
+    for col in ws.columns:
+        max_len = 0
+        col_letter = col[0].column_letter
+        for cell in col:
+            val_str = str(cell.value or '')
+            if cell.coordinate in ws.merged_cells:
+                continue
+            if len(val_str) > max_len:
+                max_len = len(val_str)
+        ws.column_dimensions[col_letter].width = max(max_len + 3, 12)
+        
+    wb.save(response)
+    return response
+
+
+@login_required
+def exportar_ventas_generales_pdf(request):
+    fecha_inicio = request.GET.get('fecha_inicio')
+    fecha_fin = request.GET.get('fecha_fin')
+    
+    hotel_ventas = Venta.objects.filter(modulo='HOTEL')
+    restaurante_ventas = Venta.objects.filter(modulo='RESTAURANTE')
+    
+    if fecha_inicio:
+        hotel_ventas = hotel_ventas.filter(fecha__date__gte=fecha_inicio)
+        restaurante_ventas = restaurante_ventas.filter(fecha__date__gte=fecha_inicio)
+    if fecha_fin:
+        hotel_ventas = hotel_ventas.filter(fecha__date__lte=fecha_fin)
+        restaurante_ventas = restaurante_ventas.filter(fecha__date__lte=fecha_fin)
+        
+    hotel_ventas = hotel_ventas.order_by('fecha')
+    restaurante_ventas = restaurante_ventas.order_by('fecha')
+    
+    total_hotel = hotel_ventas.aggregate(Sum('total'))['total__sum'] or 0
+    total_restaurante = restaurante_ventas.aggregate(Sum('total'))['total__sum'] or 0
+    total_general = total_hotel + total_restaurante
+    
+    data = {
+        'fecha': datetime.now(),
+        'fecha_inicio': fecha_inicio,
+        'fecha_fin': fecha_fin,
+        'hotel_ventas': hotel_ventas,
+        'restaurante_ventas': restaurante_ventas,
+        'total_hotel': total_hotel,
+        'total_restaurante': total_restaurante,
+        'total_general': total_general
+    }
+    
+    pdf = render_to_pdf('gestion/reporte_ventas_generales_pdf.html', data)
+    if pdf:
+        response = HttpResponse(pdf, content_type='application/pdf')
+        response['Content-Disposition'] = 'inline; filename="Reporte_Ventas_Generales.pdf"'
+        return response
+    return HttpResponse("Error generando reporte", status=400)
+
+
+@login_required
+def exportar_compras_excel(request):
+    fecha_inicio = request.GET.get('fecha_inicio')
+    fecha_fin = request.GET.get('fecha_fin')
+    compras = Compra.objects.filter(activo=True).order_by('fecha')
+    if fecha_inicio:
+        compras = compras.filter(fecha__gte=fecha_inicio)
+    if fecha_fin:
+        compras = compras.filter(fecha__lte=fecha_fin)
+        
+    response = HttpResponse(content_type='application/ms-excel')
+    response['Content-Disposition'] = 'attachment; filename="reporte_compras.xlsx"'
+    
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Compras"
+    
+    columns = ['ID Compra', 'Fecha', 'Proveedor', 'RUC Proveedor', 'Tipo Comprobante', 'Número Comprobante', 'Forma de Pago', 'N° Cuotas', 'Total (S/)']
+    ws.append(columns)
+    
+    for c in compras:
+        ws.append([
+            c.id,
+            c.fecha.strftime('%d/%m/%Y'),
+            c.proveedor.razon_social,
+            c.proveedor.ruc,
+            c.tipo_comprobante,
+            c.numero_comprobante,
+            c.forma_pago,
+            c.num_cuotas,
+            float(c.total)
+        ])
+    
+    wb.save(response)
+    return response
+
+
+@login_required
+def exportar_usuarios_excel(request):
+    fecha_inicio = request.GET.get('fecha_inicio')
+    fecha_fin = request.GET.get('fecha_fin')
+    
+    response = HttpResponse(content_type='application/ms-excel')
+    response['Content-Disposition'] = 'attachment; filename="ventas_por_usuario.xlsx"'
+    
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Ventas por Usuario"
+    
+    columns = ['ID Usuario', 'Usuario', 'Nombre Completo', 'Cantidad Ventas', 'Total Vendido (S/)', 'Promedio Venta (S/)']
+    ws.append(columns)
+    
+    for u in User.objects.all():
+        ventas_u = Venta.objects.filter(usuario=u)
+        if fecha_inicio:
+            ventas_u = ventas_u.filter(fecha__date__gte=fecha_inicio)
+        if fecha_fin:
+            ventas_u = ventas_u.filter(fecha__date__lte=fecha_fin)
+        tot_val = ventas_u.aggregate(Sum('total'))['total__sum'] or 0
+        cnt_val = ventas_u.count()
+        if cnt_val > 0 or tot_val > 0:
+            ws.append([
+                u.id,
+                u.username,
+                u.get_full_name() or u.username,
+                cnt_val,
+                float(tot_val),
+                float(tot_val / cnt_val) if cnt_val > 0 else 0.0
+            ])
+            
+    wb.save(response)
+    return response
+
+
+@login_required
+def exportar_inventario_excel(request):
+    inventario = Inventario.objects.select_related('producto').filter(producto__activo=True).order_by('producto__categoria', 'producto__nombre')
+    
+    response = HttpResponse(content_type='application/ms-excel')
+    response['Content-Disposition'] = 'attachment; filename="inventario_actual.xlsx"'
+    
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Inventario"
+    
+    columns = ['Código', 'Producto', 'Categoría', 'Subcategoría', 'Módulo', 'Stock Actual', 'Stock Mínimo', 'Stock Ideal', 'Precio Compra (S/)', 'Precio Venta (S/)', 'Valorización Stock (S/)']
+    ws.append(columns)
+    
+    for item in inventario:
+        val = float(item.stock_actual) * float(item.producto.precio_venta)
+        ws.append([
+            item.producto.codigo,
+            item.producto.nombre,
+            item.producto.get_categoria_display(),
+            item.producto.subcategoria or '',
+            item.producto.modulo,
+            item.stock_actual,
+            item.producto.stock_minimo,
+            item.producto.stock_ideal,
+            float(item.producto.precio_compra),
+            float(item.producto.precio_venta),
+            val
+        ])
+        
+    wb.save(response)
+    return response
+
+@login_required
+def exportar_ventas_excel(request):
+    modulo = request.session.get('modulo', 'HOTEL')
+    fecha_filtro = request.GET.get('fecha')
+    
+    ventas = Venta.objects.filter(modulo=modulo).order_by('fecha')
+    if fecha_filtro:
+        ventas = ventas.filter(fecha__date=fecha_filtro)
+        
+    filename = f"ventas_{modulo.lower()}.xlsx"
+    if fecha_filtro:
+        filename = f"ventas_{modulo.lower()}_{fecha_filtro}.xlsx"
+
+    response = HttpResponse(content_type='application/ms-excel')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = f"Ventas {modulo.capitalize()}"
     columns = ['ID', 'Fecha', 'Cliente', 'Tipo', 'Serie-Numero', 'Total', 'Forma Pago', 'Estado SUNAT']
     ws.append(columns)
-    ventas = Venta.objects.all().order_by('fecha')
+    
     for v in ventas:
         ws.append([v.id, v.fecha.strftime('%d/%m/%Y %H:%M'), v.cliente.nombre_razon_social,
                    v.tipo_comprobante, f"{v.serie}-{v.numero}", float(v.total), v.forma_pago, v.estado_sunat])
@@ -824,26 +1394,29 @@ def reporte_general_pdf(request):
     today = timezone.now()
     month_start = today.replace(day=1, hour=0, minute=0, second=0)
     
-    # Estadísticas para el reporte
-    ingresos_mes = Venta.objects.filter(fecha__gte=month_start).aggregate(Sum('total'))['total__sum'] or 0
-    servicios_totales = RegistroServicio.objects.count()
-    nuevos_clientes = Cliente.objects.filter(id__gt=0).count() # Placeholder logic
-    stock_critico = Inventario.objects.filter(stock_actual__lte=F('producto__stock_minimo')).count()
+    modulo = request.session.get('modulo', 'HOTEL')
     
-    # Top Clientes (con suma de ventas)
-    clientes_top = Cliente.objects.annotate(
+    # Estadísticas para el reporte
+    ingresos_mes = Venta.objects.filter(fecha__gte=month_start, modulo=modulo).aggregate(Sum('total'))['total__sum'] or 0
+    servicios_totales = RegistroServicio.objects.count() if modulo == 'HOTEL' else 0
+    nuevos_clientes = Cliente.objects.filter(id__gt=0).count() # General
+    stock_critico = Inventario.objects.filter(producto__modulo=modulo, stock_actual__lte=F('producto__stock_minimo')).count()
+    
+    # Top Clientes (con suma de ventas filtrado por modulo)
+    clientes_top = Cliente.objects.filter(venta__modulo=modulo).annotate(
         num_ventas=Count('venta'),
         total_invertido=Sum('venta__total')
     ).order_by('-total_invertido')[:5]
     
     data = {
+        'modulo': modulo,
         'fecha': today,
         'ingresos_mes': ingresos_mes,
         'servicios_totales': servicios_totales,
         'nuevos_clientes': nuevos_clientes,
         'stock_critico': stock_critico,
         'clientes_top': clientes_top,
-        'ventas_recientes': Venta.objects.all().order_by('-fecha')[:10]
+        'ventas_recientes': Venta.objects.filter(modulo=modulo).order_by('-fecha')[:10]
     }
     
     pdf = render_to_pdf('gestion/reporte_pro_pdf.html', data)
@@ -988,13 +1561,19 @@ def pedido_habitacion_create(request, reserva_id):
     else:
         form = PedidoHabitacionForm()
     
-    # Preparamos los precios de los productos para el JS
-    productos_precios = {p.id: float(p.precio_venta) for p in Producto.objects.filter(activo=True)}
+    # Preparamos la información de los productos para el JS
+    productos_info = {
+        p.id: {
+            'precio': float(p.precio_venta),
+            'categoria': p.categoria,
+            'categoria_display': p.get_categoria_display()
+        } for p in Producto.objects.filter(activo=True)
+    }
     
     return render(request, 'gestion/pedido_form.html', {
         'form': form, 
         'titulo': f'Nuevo Pedido - Hab. {reserva.habitacion.numero}',
-        'precios_json': json.dumps(productos_precios),
+        'productos_info_json': json.dumps(productos_info),
         'reserva': reserva
     })
 
@@ -1121,7 +1700,7 @@ def reserva_restore(request, pk):
 @login_required
 def mesa_abrir(request, mesa_id):
     mesa = get_object_or_404(Mesa, id=mesa_id)
-    if mesa.estado == 'DISPONIBLE':
+    if mesa.estado in ['DISPONIBLE', 'RESERVADA']:
         cliente, _ = Cliente.objects.get_or_create(
             numero_documento='00000000', 
             defaults={'nombre_razon_social': 'Público General', 'tipo_documento': 'DNI', 'modulo': 'RESTAURANTE'}
@@ -1240,7 +1819,7 @@ def carta_lista(request):
     platos = Producto.objects.filter(categoria='RESTAURANTE').order_by('subcategoria', 'nombre')
     categorias = {}
     for plato in platos:
-        cat = plato.get_subcategoria_display() or 'Otros'
+        cat = plato.subcategoria or 'Otros'
         if cat not in categorias:
             categorias[cat] = []
         categorias[cat].append(plato)

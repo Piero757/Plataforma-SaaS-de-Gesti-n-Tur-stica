@@ -3,36 +3,57 @@
 {% block title %}Reportes | TurismoERP{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
     <div>
-        <h3 class="fw-bold mb-1">Centro de Reportes</h3>
-        <p class="text-muted">Análisis de rendimiento, ventas y servicios</p>
+        <h3 class="fw-bold mb-1">Centro de Reportes Avanzado</h3>
+        <p class="text-muted mb-0">Análisis detallado de rendimiento, ventas, compras e inventario</p>
     </div>
-    <div class="d-flex gap-2">
+    
+    <!-- Ventas Generales & Exportación -->
+    <div class="d-flex gap-2 flex-wrap">
+        <!-- BOTÓN EXCLUSIVO SOLICITADO: Ventas Generales (Hotel + Restaurante) -->
+        <div class="btn-group">
+            <button type="button" class="btn btn-warning text-dark fw-bold dropdown-toggle d-flex align-items-center gap-2" data-bs-toggle="dropdown" aria-expanded="false">
+                <i data-lucide="combine" style="width: 18px;"></i> Ventas Generales
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end shadow border-0">
+                <li>
+                    <a class="dropdown-item d-flex align-items-center gap-2 py-2" href="{% url 'exportar_ventas_generales_excel' %}?fecha_inicio={{ fecha_inicio|default:'' }}&fecha_fin={{ fecha_fin|default:'' }}">
+                        <i data-lucide="file-spreadsheet" class="text-success" style="width: 16px;"></i> Descargar Excel (Hotel + Rest)
+                    </a>
+                </li>
+                <li>
+                    <a class="dropdown-item d-flex align-items-center gap-2 py-2" href="{% url 'exportar_ventas_generales_pdf' %}?fecha_inicio={{ fecha_inicio|default:'' }}&fecha_fin={{ fecha_fin|default:'' }}" target="_blank">
+                        <i data-lucide="file-text" class="text-danger" style="width: 16px;"></i> Descargar PDF (Hotel + Rest)
+                    </a>
+                </li>
+            </ul>
+        </div>
+
         <a href="{% url 'reporte_general_pdf' %}" class="btn btn-light-danger d-flex align-items-center gap-2">
-            <i data-lucide="file-text" style="width: 18px;"></i> Exportar PDF
+            <i data-lucide="file-text" style="width: 18px;"></i> PDF Módulo
         </a>
         <a href="{% url 'exportar_ventas_excel' %}" class="btn btn-light-success d-flex align-items-center gap-2">
-            <i data-lucide="download" style="width: 18px;"></i> Exportar Excel
+            <i data-lucide="download" style="width: 18px;"></i> Excel Módulo
         </a>
     </div>
 </div>
 
-<!-- Filtros -->
-<div class="card p-4 mb-4">
-    <h6 class="fw-bold mb-3">Filtros de Búsqueda</h6>
+<!-- Filtros de Reporte -->
+<div class="card shadow-sm border-0 p-4 mb-4">
+    <h6 class="fw-bold mb-3 d-flex align-items-center gap-2"><i data-lucide="sliders-horizontal" class="text-primary" style="width: 18px;"></i> Filtros de Consulta</h6>
     <form class="row g-3" method="GET">
         <div class="col-md-3">
-            <label class="form-label small fw-bold">Rango de Fecha</label>
+            <label class="form-label small fw-bold text-muted">Fecha de Inicio</label>
             <input type="date" name="fecha_inicio" class="form-control" value="{{ fecha_inicio|default:'' }}">
         </div>
         <div class="col-md-3">
-            <label class="form-label small fw-bold">Hasta</label>
+            <label class="form-label small fw-bold text-muted">Fecha de Fin</label>
             <input type="date" name="fecha_fin" class="form-control" value="{{ fecha_fin|default:'' }}">
         </div>
         <div class="col-md-3">
-            <label class="form-label small fw-bold">Usuario/Vendedor</label>
-            <select name="usuario" class="form-control">
+            <label class="form-label small fw-bold text-muted">Vendedor / Usuario</label>
+            <select name="usuario" class="form-select">
                 <option value="Todos">Todos</option>
                 {% for u in usuarios %}
                 <option value="{{ u.id }}" {% if usuario_seleccionado == u.id|stringformat:"s" %}selected{% endif %}>{{ u.get_full_name|default:u.username }}</option>
@@ -40,70 +61,312 @@
             </select>
         </div>
         <div class="col-md-3 d-flex align-items-end">
-            <button type="submit" class="btn btn-primary w-100"><i data-lucide="search" class="me-2" style="width: 16px;"></i> Filtrar</button>
+            <button type="submit" class="btn btn-primary w-100 py-2"><i data-lucide="search" class="me-2" style="width: 16px;"></i> Aplicar Filtros</button>
         </div>
     </form>
 </div>
 
-<div class="row g-4 mb-4">
-    <div class="col-lg-7">
-        <div class="card p-4 h-100">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h5 class="fw-bold mb-0">Ventas por 
-                    {% if periodo_seleccionado == 'dia' %} Día 
-                    {% elif periodo_seleccionado == 'semana' %} Semana 
-                    {% else %} Mes {% endif %}
-                </h5>
-                <div class="dropdown">
-                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle border-0" type="button" id="periodDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                        <i data-lucide="filter" class="me-1" style="width: 14px;"></i> Cambiar vista
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="periodDropdown">
-                        <li><a class="dropdown-item {% if periodo_seleccionado == 'dia' %}active{% endif %}" href="?periodo=dia&fecha_inicio={{ fecha_inicio|default:'' }}&fecha_fin={{ fecha_fin|default:'' }}&usuario={{ usuario_seleccionado|default:'Todos' }}">Por Día</a></li>
-                        <li><a class="dropdown-item {% if periodo_seleccionado == 'semana' %}active{% endif %}" href="?periodo=semana&fecha_inicio={{ fecha_inicio|default:'' }}&fecha_fin={{ fecha_fin|default:'' }}&usuario={{ usuario_seleccionado|default:'Todos' }}">Por Semana</a></li>
-                        <li><a class="dropdown-item {% if periodo_seleccionado == 'mes' %}active{% endif %}" href="?periodo=mes&fecha_inicio={{ fecha_inicio|default:'' }}&fecha_fin={{ fecha_fin|default:'' }}&usuario={{ usuario_seleccionado|default:'Todos' }}">Por Mes</a></li>
-                    </ul>
+<!-- TABS DE REPORTES -->
+<ul class="nav nav-pills nav-fill mb-4 p-1 bg-light rounded-3 shadow-sm" id="reportTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active py-3 fw-bold d-flex align-items-center justify-content-center gap-2" id="sales-tab" data-bs-toggle="tab" data-bs-target="#sales-pane" type="button" role="tab">
+            <i data-lucide="trending-up"></i> 1. Reporte de Ventas
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link py-3 fw-bold d-flex align-items-center justify-content-center gap-2" id="purchases-tab" data-bs-toggle="tab" data-bs-target="#purchases-pane" type="button" role="tab">
+            <i data-lucide="shopping-cart"></i> 2. Reporte de Compras
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link py-3 fw-bold d-flex align-items-center justify-content-center gap-2" id="users-tab" data-bs-toggle="tab" data-bs-target="#users-pane" type="button" role="tab">
+            <i data-lucide="users"></i> 3. Reporte de Usuarios
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link py-3 fw-bold d-flex align-items-center justify-content-center gap-2" id="inventory-tab" data-bs-toggle="tab" data-bs-target="#inventory-pane" type="button" role="tab">
+            <i data-lucide="boxes"></i> 4. Reporte de Inventario
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content" id="reportTabsContent">
+    
+    <!-- TAB 1: VENTAS -->
+    <div class="tab-pane fade show active" id="sales-pane" role="tabpanel" aria-labelledby="sales-tab">
+        <div class="row g-4 mb-4">
+            <!-- Gráfica de Ventas -->
+            <div class="col-lg-7">
+                <div class="card shadow-sm border-0 p-4 h-100">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h5 class="fw-bold mb-0">Evolución de Ventas ({{ periodo_seleccionado|capfirst }})</h5>
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle border-0" type="button" id="periodDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i data-lucide="filter" class="me-1" style="width: 14px;"></i> Periodo
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="periodDropdown">
+                                <li><a class="dropdown-item {% if periodo_seleccionado == 'dia' %}active{% endif %}" href="?periodo=dia&fecha_inicio={{ fecha_inicio|default:'' }}&fecha_fin={{ fecha_fin|default:'' }}&usuario={{ usuario_seleccionado|default:'Todos' }}">Por Día</a></li>
+                                <li><a class="dropdown-item {% if periodo_seleccionado == 'semana' %}active{% endif %}" href="?periodo=semana&fecha_inicio={{ fecha_inicio|default:'' }}&fecha_fin={{ fecha_fin|default:'' }}&usuario={{ usuario_seleccionado|default:'Todos' }}">Por Semana</a></li>
+                                <li><a class="dropdown-item {% if periodo_seleccionado == 'mes' %}active{% endif %}" href="?periodo=mes&fecha_inicio={{ fecha_inicio|default:'' }}&fecha_fin={{ fecha_fin|default:'' }}&usuario={{ usuario_seleccionado|default:'Todos' }}">Por Mes</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div style="height: 300px; position: relative;">
+                        <canvas id="salesChart"></canvas>
+                    </div>
                 </div>
             </div>
-            <canvas id="salesChart" height="250"></canvas>
+            <!-- Servicios Populares -->
+            <div class="col-lg-5">
+                <div class="card shadow-sm border-0 p-4 h-100">
+                    <h5 class="fw-bold mb-4">Servicios Populares</h5>
+                    <div style="height: 300px; position: relative;">
+                        <canvas id="servicesChart"></canvas>
+                    </div>
+                </div>
+            </div>
         </div>
-    </div>
-    <div class="col-lg-5">
-        <div class="card p-4 h-100">
-            <h5 class="fw-bold mb-4">Servicios Populares</h5>
-            <canvas id="servicesChart" height="250"></canvas>
-        </div>
-    </div>
-</div>
 
-<div class="card p-4">
-    <h5 class="fw-bold mb-4">Top Clientes</h5>
-    <div class="table-responsive">
-        <table class="table table-hover align-middle">
-            <thead class="table-light">
-                <tr>
-                    <th>Cliente</th>
-                    <th>Nro Entradas/Ventas</th>
-                    <th>Monto Total</th>
-                    <th>Estatus</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for cliente in clientes_top %}
-                <tr>
-                    <td class="fw-bold">{{ cliente.nombre_razon_social }}</td>
-                    <td>{{ cliente.num_ventas }}</td>
-                    <td class="text-primary fw-bold">S/ {{ cliente.total_invertido|default:0.00|floatformat:2 }}</td>
-                    <td><span class="badge bg-light-primary text-primary">Activo</span></td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="4" class="text-center text-muted">No hay datos suficientes para generar el top.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <div class="card shadow-sm border-0 p-4 mb-4">
+            <h5 class="fw-bold mb-4">Top Clientes por Facturación</h5>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Cliente</th>
+                            <th>Nro Entradas/Ventas</th>
+                            <th>Monto Total</th>
+                            <th>Estatus</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for cliente in clientes_top %}
+                        <tr>
+                            <td class="fw-bold">{{ cliente.nombre_razon_social }}</td>
+                            <td>{{ cliente.num_ventas }}</td>
+                            <td class="text-primary fw-bold">S/ {{ cliente.total_invertido|default:0.00|floatformat:2 }}</td>
+                            <td><span class="badge bg-light-primary text-primary">Activo</span></td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center text-muted py-3">No hay datos suficientes para generar el top.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card shadow-sm border-0 p-4">
+            <h5 class="fw-bold mb-4">Listado de Ventas en este Periodo</h5>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>Fecha</th>
+                            <th>Cliente</th>
+                            <th>Comprobante</th>
+                            <th>Serie-Número</th>
+                            <th>Módulo</th>
+                            <th>Vendedor</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for v in ventas_list %}
+                        <tr>
+                            <td>{{ v.id }}</td>
+                            <td>{{ v.fecha|date:"d/m/Y H:i" }}</td>
+                            <td class="fw-semibold">{{ v.cliente.nombre_razon_social }}</td>
+                            <td>{{ v.get_tipo_comprobante_display }}</td>
+                            <td>{{ v.serie }}-{{ v.numero }}</td>
+                            <td><span class="badge bg-light-{% if v.modulo == 'HOTEL' %}primary text-primary{% else %}success text-success{% endif %}">{{ v.modulo }}</span></td>
+                            <td>{{ v.usuario.username }}</td>
+                            <td class="text-success fw-bold">S/ {{ v.total|floatformat:2 }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center text-muted py-3">No se encontraron ventas en este periodo.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
+
+    <!-- TAB 2: COMPRAS -->
+    <div class="tab-pane fade" id="purchases-pane" role="tabpanel" aria-labelledby="purchases-tab">
+        <div class="row g-4 mb-4">
+            <div class="col-md-6 col-xl-4">
+                <div class="card shadow-sm border-0 p-4 bg-light-primary text-primary">
+                    <h6 class="text-muted fw-bold mb-1">Monto de Compras Realizadas</h6>
+                    <h2 class="fw-bold mb-0">S/ {{ total_compras_monto|floatformat:2 }}</h2>
+                </div>
+            </div>
+            <div class="col-md-6 col-xl-4">
+                <div class="card shadow-sm border-0 p-4 bg-light-info text-info">
+                    <h6 class="text-muted fw-bold mb-1">Total Transacciones Compra</h6>
+                    <h2 class="fw-bold mb-0">{{ cantidad_compras }} compras</h2>
+                </div>
+            </div>
+            <div class="col-md-12 col-xl-4 d-flex align-items-center justify-content-md-end justify-content-start">
+                <a href="{% url 'exportar_compras_excel' %}?fecha_inicio={{ fecha_inicio|default:'' }}&fecha_fin={{ fecha_fin|default:'' }}" class="btn btn-outline-success py-2 px-4 d-flex align-items-center gap-2">
+                    <i data-lucide="file-spreadsheet"></i> Exportar Compras a Excel
+                </a>
+            </div>
+        </div>
+
+        <div class="card shadow-sm border-0 p-4">
+            <h5 class="fw-bold mb-4">Registro de Compras en este Periodo</h5>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>Fecha</th>
+                            <th>Proveedor</th>
+                            <th>Comprobante</th>
+                            <th>Nro Comprobante</th>
+                            <th>Forma de Pago</th>
+                            <th>Módulo</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in compras_list %}
+                        <tr>
+                            <td>{{ c.id }}</td>
+                            <td>{{ c.fecha|date:"d/m/Y" }}</td>
+                            <td class="fw-semibold">{{ c.proveedor.razon_social }}</td>
+                            <td>{{ c.get_tipo_comprobante_display }}</td>
+                            <td>{{ c.numero_comprobante }}</td>
+                            <td>{{ c.get_forma_pago_display }}</td>
+                            <td><span class="badge bg-light-{% if c.modulo == 'HOTEL' %}primary text-primary{% else %}success text-success{% endif %}">{{ c.modulo }}</span></td>
+                            <td class="text-danger fw-bold">S/ {{ c.total|floatformat:2 }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center text-muted py-3">No se encontraron compras en el periodo seleccionado.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 3: USUARIOS -->
+    <div class="tab-pane fade" id="users-pane" role="tabpanel" aria-labelledby="users-tab">
+        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+            <h5 class="fw-bold mb-0">Rendimiento y Ventas por Usuario</h5>
+            <a href="{% url 'exportar_usuarios_excel' %}?fecha_inicio={{ fecha_inicio|default:'' }}&fecha_fin={{ fecha_fin|default:'' }}" class="btn btn-outline-success d-flex align-items-center gap-2 py-2">
+                <i data-lucide="file-spreadsheet"></i> Exportar Vendedores a Excel
+            </a>
+        </div>
+
+        <div class="card shadow-sm border-0 p-4">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Usuario / Vendedor</th>
+                            <th>Nombre Completo</th>
+                            <th class="text-center">Ventas Realizadas</th>
+                            <th class="text-center">Monto Vendido</th>
+                            <th class="text-center">Ticket Promedio</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record in usuarios_report %}
+                        <tr>
+                            <td class="fw-bold"><i data-lucide="user" class="text-muted me-2" style="width: 16px;"></i>{{ record.user.username }}</td>
+                            <td>{{ record.user.get_full_name|default:"Sin Nombre" }}</td>
+                            <td class="text-center fw-semibold">{{ record.num_ventas }}</td>
+                            <td class="text-center text-success fw-bold">S/ {{ record.total_vendido|floatformat:2 }}</td>
+                            <td class="text-center fw-semibold text-primary">S/ {{ record.promedio_venta|floatformat:2 }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center text-muted py-3">No se encontraron ventas para ningún usuario en este periodo.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 4: INVENTARIO -->
+    <div class="tab-pane fade" id="inventory-pane" role="tabpanel" aria-labelledby="inventory-tab">
+        <div class="row g-4 mb-4">
+            <div class="col-md-6 col-xl-4">
+                <div class="card shadow-sm border-0 p-4 bg-light-success text-success">
+                    <h6 class="text-muted fw-bold mb-1">Total Unidades en Stock</h6>
+                    <h2 class="fw-bold mb-0">{{ total_stock_items }} unidades</h2>
+                </div>
+            </div>
+            <div class="col-md-6 col-xl-4">
+                <div class="card shadow-sm border-0 p-4 bg-light-primary text-primary">
+                    <h6 class="text-muted fw-bold mb-1">Valorización del Inventario (Ventas)</h6>
+                    <h2 class="fw-bold mb-0">S/ {{ total_valoracion|floatformat:2 }}</h2>
+                </div>
+            </div>
+            <div class="col-md-12 col-xl-4 d-flex align-items-center justify-content-md-end justify-content-start">
+                <a href="{% url 'exportar_inventario_excel' %}" class="btn btn-outline-success py-2 px-4 d-flex align-items-center gap-2">
+                    <i data-lucide="file-spreadsheet"></i> Exportar Inventario Actual a Excel
+                </a>
+            </div>
+        </div>
+
+        <div class="card shadow-sm border-0 p-4">
+            <h5 class="fw-bold mb-4">Estado del Stock del Inventario Actual</h5>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Código</th>
+                            <th>Nombre Artículo</th>
+                            <th>Categoría</th>
+                            <th class="text-center">Stock Actual</th>
+                            <th class="text-center">Stock Mínimo</th>
+                            <th class="text-center">Stock Ideal</th>
+                            <th class="text-right">Precio Venta</th>
+                            <th class="text-right">Valorizado</th>
+                            <th>Alerta Stock</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in inventario_report %}
+                        <tr class="{% if item.stock_actual <= item.producto.stock_minimo %}table-light-danger{% endif %}">
+                            <td class="fw-semibold">{{ item.producto.codigo }}</td>
+                            <td>{{ item.producto.nombre }}</td>
+                            <td>{{ item.producto.get_categoria_display }}</td>
+                            <td class="text-center fw-bold">{{ item.stock_actual }}</td>
+                            <td class="text-center text-muted">{{ item.producto.stock_minimo }}</td>
+                            <td class="text-center text-muted">{{ item.producto.stock_ideal }}</td>
+                            <td class="text-right">S/ {{ item.producto.precio_venta|floatformat:2 }}</td>
+                            <td class="text-right fw-bold text-dark">S/ {{ item.valoracion|floatformat:2 }}</td>
+                            <td>
+                                {% if item.stock_actual <= item.producto.stock_minimo %}
+                                <span class="badge bg-danger text-white">Stock Crítico</span>
+                                {% else %}
+                                <span class="badge bg-success text-white">Stock OK</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="9" class="text-center text-muted py-3">No hay productos cargados en el inventario.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 {% endblock %}
@@ -111,7 +374,31 @@
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    // Gráfico de Ventas (Ejemplo con datos reales/simulados)
+    // Lucide Icons initialization inside tabs
+    document.addEventListener("DOMContentLoaded", function() {
+        lucide.createIcons();
+        
+        // Mantener tabs al cambiar de query params
+        const hash = window.location.hash;
+        if (hash) {
+            const triggerEl = document.querySelector(`button[data-bs-target="${hash}"]`);
+            if (triggerEl) {
+                const tab = new bootstrap.Tab(triggerEl);
+                tab.show();
+            }
+        }
+        
+        const tabBtns = document.querySelectorAll('button[data-bs-toggle="tab"]');
+        tabBtns.forEach(btn => {
+            btn.addEventListener('shown.bs.tab', function (event) {
+                const target = event.target.getAttribute('data-bs-target');
+                window.location.hash = target;
+                lucide.createIcons();
+            });
+        });
+    });
+
+    // Gráfico de Ventas
     const salesCtx = document.getElementById('salesChart').getContext('2d');
     new Chart(salesCtx, {
         type: 'line',
@@ -121,14 +408,25 @@
                 label: 'Ventas S/',
                 data: {{ sales_data|safe }},
                 borderColor: '#009ef7',
-                backgroundColor: 'rgba(0, 158, 247, 0.1)',
+                backgroundColor: 'rgba(0, 158, 247, 0.08)',
                 fill: true,
-                tension: 0.4
+                tension: 0.35,
+                borderWidth: 3,
+                pointRadius: 4,
+                pointBackgroundColor: '#009ef7'
             }]
         },
         options: {
             responsive: true,
-            plugins: { legend: { display: false } }
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: {
+                    grid: { color: 'rgba(0, 0, 0, 0.05)' },
+                    ticks: { callback: function(value) { return 'S/ ' + value; } }
+                },
+                x: { grid: { display: false } }
+            }
         }
     });
 
@@ -140,14 +438,16 @@
             labels: {{ services_labels|safe }},
             datasets: [{
                 data: {{ services_data|safe }},
-                backgroundColor: ['#009ef7', '#50cd89', '#ff9900', '#f1416c', '#7239ea']
+                backgroundColor: ['#009ef7', '#50cd89', '#ff9900', '#f1416c', '#7239ea'],
+                hoverOffset: 4
             }]
         },
         options: {
             responsive: true,
-            cutout: '70%',
+            maintainAspectRatio: false,
+            cutout: '72%',
             plugins: {
-                legend: { position: 'bottom' }
+                legend: { position: 'bottom', labels: { boxWidth: 12, padding: 15 } }
             }
         }
     });

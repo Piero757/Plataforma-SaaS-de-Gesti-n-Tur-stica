@@ -1,0 +1,205 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>Reporte de Ventas Generales - TurismoERP</title>
+    <style type="text/css">
+        @page {
+            size: a4 landscape;
+            margin: 1.5cm;
+            @frame footer {
+                -pdf-frame-content: footer_content;
+                bottom: 1cm;
+                margin-left: 1.5cm;
+                margin-right: 1.5cm;
+                height: 1cm;
+            }
+        }
+        body { font-family: Helvetica, Arial, sans-serif; font-size: 10px; color: #333; }
+        .header { text-align: center; border-bottom: 3px solid #1f4e78; padding-bottom: 10px; margin-bottom: 25px; }
+        .title { font-size: 20px; font-weight: bold; color: #1f4e78; text-transform: uppercase; }
+        .subtitle { font-size: 12px; color: #666; margin-top: 5px; }
+        
+        /* KPI / Resume Box */
+        .kpi-container { width: 100%; margin-bottom: 25px; border-bottom: 1px solid #ccc; padding-bottom: 15px; }
+        .kpi-card { width: 30%; float: left; border: 1px solid #ddd; background-color: #fcfcfc; padding: 10px; text-align: center; border-radius: 5px; margin-right: 3%; }
+        .kpi-value { font-size: 16px; font-weight: bold; margin: 4px 0; }
+        .kpi-label { font-size: 8px; color: #777; text-transform: uppercase; letter-spacing: 0.5px; }
+        
+        .hotel-color { color: #2c3e50; }
+        .rest-color { color: #27ae60; }
+        .gen-color { color: #d35400; }
+        
+        /* Section Titles */
+        .section-box { border: 1px solid #ddd; border-radius: 6px; padding: 12px; margin-bottom: 25px; background-color: #ffffff; }
+        .section-title { font-size: 13px; font-weight: bold; margin-bottom: 10px; padding-bottom: 4px; border-bottom: 2px solid; }
+        .title-hotel { border-color: #2c3e50; color: #2c3e50; }
+        .title-rest { border-color: #27ae60; color: #27ae60; }
+        
+        table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+        th { padding: 6px 8px; font-weight: bold; font-size: 9px; text-transform: uppercase; border-bottom: 2px solid #ddd; }
+        .th-hotel { background-color: #2c3e50; color: #ffffff; }
+        .th-rest { background-color: #27ae60; color: #ffffff; }
+        
+        td { padding: 6px 8px; border-bottom: 1px solid #eee; }
+        .tr-even { background-color: #f9f9f9; }
+        .text-right { text-align: right; }
+        .text-center { text-align: center; }
+        .fw-bold { font-weight: bold; }
+        
+        .badge { padding: 2px 5px; border-radius: 3px; font-size: 8px; color: white; font-weight: bold; }
+        .bg-pending { background-color: #ff9900; }
+        .bg-accepted { background-color: #27ae60; }
+        .bg-error { background-color: #e74c3c; }
+        
+        #footer_content {
+            text-align: right;
+            font-size: 8px;
+            color: #888;
+            border-top: 1px solid #eee;
+            padding-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="title">Reporte de Ventas Generales - Hotel & Restaurante</div>
+        <div class="subtitle">
+            Generado el {{ fecha|date:"d/m/Y H:i" }}
+            {% if fecha_inicio or fecha_fin %}
+            | Rango: {{ fecha_inicio|default:"Inicio" }} al {{ fecha_fin|default:"Fin" }}
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="kpi-container">
+        <div class="kpi-card" style="border-left: 4px solid #2c3e50;">
+            <div class="kpi-label">Total Ventas Hotel</div>
+            <div class="kpi-value hotel-color">S/ {{ total_hotel|floatformat:2 }}</div>
+        </div>
+        <div class="kpi-card" style="border-left: 4px solid #27ae60;">
+            <div class="kpi-label">Total Ventas Restaurante</div>
+            <div class="kpi-value rest-color">S/ {{ total_restaurante|floatformat:2 }}</div>
+        </div>
+        <div class="kpi-card" style="margin-right: 0; border-left: 4px solid #d35400; background-color: #fffaf0;">
+            <div class="kpi-label">Total Ingresos Generales</div>
+            <div class="kpi-value gen-color">S/ {{ total_general|floatformat:2 }}</div>
+        </div>
+        <div style="clear: both;"></div>
+    </div>
+
+    <!-- CUADRO 1: HOTEL -->
+    <div class="section-box">
+        <div class="section-title title-hotel">CUADRO 1: VENTAS REGISTRADAS EN HOTEL</div>
+        <table>
+            <thead>
+                <tr>
+                    <th class="th-hotel text-center" style="width: 8%;">ID</th>
+                    <th class="th-hotel text-center" style="width: 15%;">Fecha</th>
+                    <th class="th-hotel" style="width: 25%;">Cliente</th>
+                    <th class="th-hotel text-center" style="width: 12%;">Comprobante</th>
+                    <th class="th-hotel text-center" style="width: 12%;">Nro</th>
+                    <th class="th-hotel text-center" style="width: 10%;">Vendedor</th>
+                    <th class="th-hotel text-center" style="width: 10%;">SUNAT</th>
+                    <th class="th-hotel text-right" style="width: 10%;">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for v in hotel_ventas %}
+                <tr class="{% cycle '' 'tr-even' as rowcolors %}">
+                    <td class="text-center">{{ v.id }}</td>
+                    <td class="text-center">{{ v.fecha|date:"d/m/Y H:i" }}</td>
+                    <td>{{ v.cliente.nombre_razon_social }}</td>
+                    <td class="text-center">{{ v.get_tipo_comprobante_display }}</td>
+                    <td class="text-center">{{ v.serie }}-{{ v.numero }}</td>
+                    <td class="text-center">{{ v.usuario.username }}</td>
+                    <td class="text-center">
+                        {% if v.estado_sunat == 'ACEPTADO' %}
+                            <span class="badge bg-accepted">Aceptado</span>
+                        {% elif v.estado_sunat == 'PENDIENTE' %}
+                            <span class="badge bg-pending">Pendiente</span>
+                        {% else %}
+                            <span class="badge bg-error">Error</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-right fw-bold">S/ {{ v.total|floatformat:2 }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="text-center text-muted">No se registraron ventas de Hotel en este periodo.</td>
+                </tr>
+                {% endfor %}
+                <tr style="background-color: #eaeded;">
+                    <td colspan="7" class="text-right fw-bold" style="font-size: 9px; padding: 8px;">SUBTOTAL HOTEL:</td>
+                    <td class="text-right fw-bold hotel-color" style="font-size: 10px; padding: 8px;">S/ {{ total_hotel|floatformat:2 }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <pdf:nextpage />
+
+    <!-- CUADRO 2: RESTAURANTE -->
+    <div class="section-box">
+        <div class="section-title title-rest">CUADRO 2: VENTAS REGISTRADAS EN RESTAURANTE</div>
+        <table>
+            <thead>
+                <tr>
+                    <th class="th-rest text-center" style="width: 8%;">ID</th>
+                    <th class="th-rest text-center" style="width: 15%;">Fecha</th>
+                    <th class="th-rest" style="width: 30%;">Cliente</th>
+                    <th class="th-rest text-center" style="width: 15%;">Comprobante</th>
+                    <th class="th-rest text-center" style="width: 12%;">Nro</th>
+                    <th class="th-rest text-center" style="width: 10%;">Vendedor</th>
+                    <th class="th-rest text-right" style="width: 10%;">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for v in restaurante_ventas %}
+                <tr class="{% cycle '' 'tr-even' as rowcolors2 %}">
+                    <td class="text-center">{{ v.id }}</td>
+                    <td class="text-center">{{ v.fecha|date:"d/m/Y H:i" }}</td>
+                    <td>{{ v.cliente.nombre_razon_social }}</td>
+                    <td class="text-center">{{ v.get_tipo_comprobante_display }}</td>
+                    <td class="text-center">{{ v.serie }}-{{ v.numero }}</td>
+                    <td class="text-center">{{ v.usuario.username }}</td>
+                    <td class="text-right fw-bold">S/ {{ v.total|floatformat:2 }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center text-muted">No se registraron ventas de Restaurante en este periodo.</td>
+                </tr>
+                {% endfor %}
+                <tr style="background-color: #eaeded;">
+                    <td colspan="6" class="text-right fw-bold" style="font-size: 9px; padding: 8px;">SUBTOTAL RESTAURANTE:</td>
+                    <td class="text-right fw-bold rest-color" style="font-size: 10px; padding: 8px;">S/ {{ total_restaurante|floatformat:2 }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- FINAL SUMMARY BOX -->
+    <div style="width: 40%; float: right; border: 2px solid #d35400; border-radius: 5px; background-color: #fffcf8; padding: 10px;">
+        <table style="width: 100%; border: none; margin: 0;">
+            <tr>
+                <td style="border: none;" class="fw-bold">Subtotal Acumulado Hotel:</td>
+                <td style="border: none;" class="text-right hotel-color fw-bold">S/ {{ total_hotel|floatformat:2 }}</td>
+            </tr>
+            <tr>
+                <td style="border: none;" class="fw-bold">Subtotal Acumulado Restaurante:</td>
+                <td style="border: none;" class="text-right rest-color fw-bold">S/ {{ total_restaurante|floatformat:2 }}</td>
+            </tr>
+            <tr style="border-top: 1px solid #d35400;">
+                <td style="border: none; font-size: 11px;" class="fw-bold gen-color">TOTAL GENERAL ACUMULADO:</td>
+                <td style="border: none; font-size: 12px;" class="text-right gen-color fw-bold">S/ {{ total_general|floatformat:2 }}</td>
+            </tr>
+        </table>
+    </div>
+    <div style="clear: both;"></div>
+
+    <div id="footer_content">
+        Página <pdf:pagenumber> de <pdf:pagecount> - Sistema de Reportes Generales TurismoERP
+    </div>
+</body>
+</html>

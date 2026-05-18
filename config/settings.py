@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-t=^-&gl(#aa@f-$f7^!bsif_i))3%s_h#01fkfe*xu&6_b4s-y
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -125,6 +125,7 @@ CORS_ALLOW_ALL_ORIGINS = True # Ajustar en producción
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+STATICFILES_DIRS = [BASE_DIR / "static"]
 
 # Archivos Media (Imágenes subidas)
 MEDIA_URL = '/media/'

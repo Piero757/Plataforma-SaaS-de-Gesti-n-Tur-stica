@@ -21,7 +21,14 @@
             <form method="post">
                 {% csrf_token %}
                 <div class="mb-3">
-                    <label class="form-label fw-bold small text-muted">Producto / Servicio</label>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <label class="form-label fw-bold small text-muted mb-0">Producto / Servicio</label>
+                        <div id="filter-badges" class="d-flex gap-1">
+                            <span class="badge bg-primary pointer-cursor" data-filter="all">Todos</span>
+                            <span class="badge bg-light text-dark border pointer-cursor" data-filter="PRODUCTO">Productos</span>
+                            <span class="badge bg-light text-dark border pointer-cursor" data-filter="SERVICIO">Servicios</span>
+                        </div>
+                    </div>
                     {{ form.producto }}
                     {% if form.producto.errors %}<div class="text-danger small">{{ form.producto.errors }}</div>{% endif %}
                 </div>
@@ -35,6 +42,11 @@
                         <label class="form-label fw-bold small text-muted">Precio Unitario (S/)</label>
                         {{ form.precio_unitario }}
                     </div>
+                </div>
+
+                <div class="mt-3">
+                    <label class="form-label fw-bold small text-muted">Observaciones / Horario</label>
+                    {{ form.observaciones }}
                 </div>
 
                 <div class="mt-4 p-3 bg-light rounded d-flex justify-content-between align-items-center">
@@ -56,18 +68,115 @@
 </div>
 {% endblock %}
 
+{% block extra_css %}
+<!-- Tom Select CSS -->
+<link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
+<style>
+    .ts-control {
+        border-radius: 0.375rem !important;
+        padding: 0.5rem 0.75rem !important;
+    }
+    .pointer-cursor { cursor: pointer; }
+    .badge { transition: all 0.2s; }
+</style>
+{% endblock %}
+
 {% block extra_js %}
+<!-- Tom Select JS -->
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
 <script>
-    const precios = {{ precios_json|safe }};
+    const productosInfo = {{ productos_info_json|safe }};
     const productoSelect = document.querySelector('select[name="producto"]');
     const cantidadInput = document.querySelector('input[name="cantidad"]');
     const precioInput = document.querySelector('input[name="precio_unitario"]');
     const subtotalDisplay = document.getElementById('subtotalDisplay');
 
+    // Mapeo de categorías a tipos generales
+    const TIPO_MAP = {
+        'TURISMO': 'SERVICIO',
+        'HOSPEDAJE': 'SERVICIO',
+        'SOUVENIR': 'PRODUCTO',
+        'RESTAURANTE': 'PRODUCTO',
+        'OTROS': 'PRODUCTO'
+    };
+
+    // Inicializar Tom Select para búsqueda y grupos
+    let allOptionsMaster = {}; // Guardar copia de respaldo
+
+    const ts = new TomSelect(productoSelect, {
+        create: false,
+        sortField: { field: "text", direction: "asc" },
+        placeholder: "Buscar producto o servicio...",
+        optgroupField: 'tipo',
+        optgroups: [
+            {value: 'PRODUCTO', label: 'Productos'},
+            {value: 'SERVICIO', label: 'Servicios'}
+        ],
+        onInitialize: function() {
+            // Añadir metadatos de tipo a cada opción
+            Object.keys(this.options).forEach(key => {
+                const opt = this.options[key];
+                const info = productosInfo[opt.value];
+                if (info) {
+                    opt.tipo = TIPO_MAP[info.categoria] || 'PRODUCTO';
+                    opt.categoria_nom = info.categoria_display;
+                }
+                allOptionsMaster[key] = {...opt};
+            });
+            this.refreshOptions(false);
+        },
+        render: {
+            option: function(item, escape) {
+                const parts = item.text.split(' - S/ ');
+                const name = parts[0];
+                const price = parts[1] ? `S/ ${parts[1]}` : '';
+                return `<div class="d-flex justify-content-between align-items-center w-100">
+                            <div>
+                                <span class="fw-medium">${escape(name)}</span>
+                                <br><small class="text-muted" style="font-size: 10px;">${escape(item.categoria_nom || '')}</small>
+                            </div>
+                            <span class="text-primary fw-bold ms-2">${escape(price)}</span>
+                        </div>`;
+            },
+            item: function(item, escape) {
+                const parts = item.text.split(' - S/ ');
+                return `<div>${escape(parts[0])}</div>`;
+            }
+        },
+        onChange: function(value) {
+            actualizarPrecio();
+        }
+    });
+
+    // Lógica de Filtros (Badges)
+    document.querySelectorAll('#filter-badges .badge').forEach(badge => {
+        badge.addEventListener('click', function() {
+            const filter = this.dataset.filter;
+            
+            // UI Update
+            document.querySelectorAll('#filter-badges .badge').forEach(b => {
+                b.classList.remove('bg-primary');
+                b.classList.add('bg-light', 'text-dark', 'border');
+            });
+            this.classList.remove('bg-light', 'text-dark', 'border');
+            this.classList.add('bg-primary');
+
+            // Filter Options
+            ts.clearOptions();
+            Object.keys(allOptionsMaster).forEach(key => {
+                const opt = allOptionsMaster[key];
+                if (filter === 'all' || opt.tipo === filter) {
+                    ts.addOption(opt);
+                }
+            });
+            ts.refreshOptions(false);
+        });
+    });
+
     function actualizarPrecio() {
         const prodId = productoSelect.value;
-        if (prodId && precios[prodId]) {
-            precioInput.value = precios[prodId].toFixed(2);
+        if (prodId && productosInfo[prodId]) {
+            precioInput.value = productosInfo[prodId].precio.toFixed(2);
             calcularSubtotal();
         }
     }
@@ -79,11 +188,9 @@
         subtotalDisplay.innerText = `S/ ${subtotal.toFixed(2)}`;
     }
 
-    productoSelect.addEventListener('change', actualizarPrecio);
     cantidadInput.addEventListener('input', calcularSubtotal);
     precioInput.addEventListener('input', calcularSubtotal);
 
-    // Inicializar
     if (productoSelect.value) {
         actualizarPrecio();
     }

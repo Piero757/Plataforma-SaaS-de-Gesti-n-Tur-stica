@@ -3,52 +3,106 @@
 {% block title %}Servicios | TurismoERP{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <h3 class="fw-bold mb-1">Servicios Brindados</h3>
-        <p class="text-muted">Registro de guiados, alojamiento y otros servicios turísticos</p>
-    </div>
-    <a href="{% url 'servicio_create' %}" class="btn btn-primary d-flex align-items-center gap-2">
-        <i data-lucide="plus-circle" style="width: 18px;"></i> Registrar Servicio
-    </a>
+<div class="mb-4">
+    <h3 class="fw-bold mb-1">Gestión de Servicios</h3>
+    <p class="text-muted">Administra el catálogo de servicios y el historial de servicios brindados.</p>
 </div>
 
-<div class="card p-4">
-    <div class="table-responsive">
-        <table class="table table-hover align-middle">
-            <thead class="table-light">
-                <tr>
-                    <th>Fecha</th>
-                    <th>Servicio</th>
-                    <th>Cliente</th>
-                    <th>Precio</th>
-                    <th>Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for serv in servicios %}
-                <tr>
-                    <td>{{ serv.fecha|date:"d/m/Y H:i" }}</td>
-                    <td class="fw-bold">{{ serv.nombre_servicio }}</td>
-                    <td>{{ serv.cliente.nombre_razon_social }}</td>
-                    <td class="fw-bold text-primary">S/ {{ serv.precio }}</td>
-                    <td>
-                        <div class="d-flex gap-2">
-                            <a href="{% url 'servicio_update' serv.id %}" class="btn btn-sm btn-light" title="Editar"><i data-lucide="edit-3" style="width: 16px;"></i></a>
-                            <a href="{% url 'servicio_delete' serv.id %}" class="btn btn-sm btn-light text-danger" title="Eliminar" onclick="return confirm('¿Está seguro de eliminar este registro?')"><i data-lucide="trash-2" style="width: 16px;"></i></a>
-                        </div>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="5" class="text-center text-muted py-5">
-                        <i data-lucide="briefcase" class="mb-3 d-block mx-auto" style="width: 48px; opacity: 0.5;"></i>
-                        No hay servicios registrados aún.
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+<ul class="nav nav-tabs mb-4" id="serviceTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active fw-bold" id="registros-tab" data-bs-toggle="tab" data-bs-target="#registros" type="button" role="tab">Historial de Brindados</button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link fw-bold" id="catalogo-tab" data-bs-toggle="tab" data-bs-target="#catalogo" type="button" role="tab">Catálogo / Definiciones</button>
+    </li>
+</ul>
+
+<div class="tab-content" id="serviceTabsContent">
+    <!-- Pestaña de Historial -->
+    <div class="tab-pane fade show active" id="registros" role="tabpanel">
+        <div class="d-flex justify-content-end mb-3">
+            <a href="{% url 'servicio_create' %}" class="btn btn-primary btn-sm d-flex align-items-center gap-2">
+                <i data-lucide="plus-circle" style="width: 18px;"></i> Registrar Servicio a Cliente
+            </a>
+        </div>
+        <div class="card p-4 shadow-sm border-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Servicio</th>
+                            <th>Cliente</th>
+                            <th>Precio</th>
+                            <th class="text-end">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for serv in servicios %}
+                        <tr>
+                            <td>{{ serv.fecha|date:"d/m/Y H:i" }}</td>
+                            <td class="fw-bold">{{ serv.nombre_servicio }}</td>
+                            <td>{{ serv.cliente.nombre_razon_social }}</td>
+                            <td class="fw-bold text-primary">S/ {{ serv.precio }}</td>
+                            <td class="text-end">
+                                <div class="d-flex gap-2 justify-content-end">
+                                    <a href="{% url 'servicio_update' serv.id %}" class="btn btn-sm btn-light" title="Editar"><i data-lucide="edit-3" style="width: 16px;"></i></a>
+                                    <a href="{% url 'servicio_delete' serv.id %}" class="btn btn-sm btn-light text-danger" title="Eliminar" onclick="return confirm('¿Está seguro de eliminar este registro?')"><i data-lucide="trash-2" style="width: 16px;"></i></a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center text-muted py-5">No hay registros de servicios brindados.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pestaña de Catálogo -->
+    <div class="tab-pane fade" id="catalogo" role="tabpanel">
+        <div class="d-flex justify-content-end mb-3">
+            <a href="{% url 'producto_create' %}" class="btn btn-success btn-sm d-flex align-items-center gap-2">
+                <i data-lucide="plus-circle" style="width: 18px;"></i> Crear Nuevo Tipo de Servicio
+            </a>
+        </div>
+        <div class="card p-4 shadow-sm border-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Código</th>
+                            <th>Nombre del Servicio</th>
+                            <th>Categoría</th>
+                            <th>Precio Base</th>
+                            <th class="text-end">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in catalogo %}
+                        <tr>
+                            <td class="small text-muted">{{ item.codigo }}</td>
+                            <td class="fw-bold">{{ item.nombre }}</td>
+                            <td><span class="badge bg-light text-dark border">{{ item.get_categoria_display }}</span></td>
+                            <td class="fw-bold text-success">S/ {{ item.precio_venta }}</td>
+                            <td class="text-end">
+                                <div class="d-flex gap-2 justify-content-end">
+                                    <a href="{% url 'producto_update' item.id %}" class="btn btn-sm btn-light" title="Editar"><i data-lucide="edit-3" style="width: 16px;"></i></a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center text-muted py-5">No hay servicios definidos en el catálogo.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}

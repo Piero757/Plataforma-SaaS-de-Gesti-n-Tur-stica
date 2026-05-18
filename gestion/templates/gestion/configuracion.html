@@ -12,6 +12,24 @@
 
 <form method="POST" enctype="multipart/form-data">
     {% csrf_token %}
+    {{ form.tipo_impresion.as_hidden }}
+    
+    {% if form.errors %}
+    <div class="alert alert-danger shadow-sm">
+        <h6 class="fw-bold mb-2"><i data-lucide="alert-circle" class="me-2" style="width: 18px;"></i>Por favor, corrija los siguientes errores:</h6>
+        <ul class="mb-0 small">
+            {% for field in form %}
+                {% if field.errors %}
+                    <li><strong>{{ field.label }}:</strong> {{ field.errors|striptags }}</li>
+                {% endif %}
+            {% endfor %}
+            {% if form.non_field_errors %}
+                <li>{{ form.non_field_errors|striptags }}</li>
+            {% endif %}
+        </ul>
+    </div>
+    {% endif %}
+
     <div class="row g-4">
         <!-- Identidad y Personalización -->
         <div class="col-lg-12">
