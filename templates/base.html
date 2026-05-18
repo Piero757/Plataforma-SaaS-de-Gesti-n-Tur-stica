@@ -121,15 +121,40 @@
         @media (max-width: 992px) {
             #sidebar { left: -var(--sidebar-width); }
             #main-content, .navbar { margin-left: 0; }
-            #sidebar.show { left: 0; }
+            #sidebar.show { left: 0; box-shadow: 5px 0 25px rgba(0, 0, 0, 0.15); }
+        }
+
+        #sidebar-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.45);
+            z-index: 999;
+            backdrop-filter: blur(2px);
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        #sidebar-overlay.show {
+            opacity: 1;
+            visibility: visible;
         }
     </style>
     {% block extra_css %}{% endblock %}
 </head>
 <body>
 
+    <!-- Overlay para dispositivos móviles -->
+    <div id="sidebar-overlay"></div>
+
     <aside id="sidebar" style="{% if request.session.modulo == 'RESTAURANTE' %}--sidebar-bg: #2d1e2d; --sidebar-hover: #402b40;{% endif %}">
-        <div class="px-4 py-4 mb-2">
+        <div class="px-4 py-4 mb-2 position-relative">
+            <!-- Botón de Cerrar para Móviles -->
+            <button type="button" class="btn-close btn-close-white d-lg-none position-absolute" style="top: 15px; right: 15px; z-index: 1010;" id="close-sidebar" aria-label="Close"></button>
+            
             <div class="logo mb-4 d-flex flex-column align-items-center text-center px-2">
                 {% if empresa_config.logo %}
                     <img src="{{ empresa_config.logo.url }}" alt="Logo" class="mb-2 shadow-sm" 
@@ -243,8 +268,8 @@
         </section>
     </main>
 
-    <!-- Bootstrap 5 JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Bootstrap 5 JS (Local para compatibilidad offline al 100%) -->
+    <script src="{% static 'js/bootstrap.bundle.min.js' %}"></script>
     <script>
         // Persistencia del scroll del sidebar
         document.addEventListener("DOMContentLoaded", function() {
@@ -265,13 +290,34 @@
         // Initialize Lucide Icons
         lucide.createIcons();
 
-        // Sidebar Toggle
+        // Controles premium para el Sidebar Móvil
         const toggleBtn = document.getElementById('toggle-sidebar');
+        const closeBtn = document.getElementById('close-sidebar');
         const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
+
+        function openSidebar() {
+            if (sidebar && overlay) {
+                sidebar.classList.add('show');
+                overlay.classList.add('show');
+            }
+        }
+
+        function closeSidebar() {
+            if (sidebar && overlay) {
+                sidebar.classList.remove('show');
+                overlay.classList.remove('show');
+            }
+        }
+
         if (toggleBtn) {
-            toggleBtn.addEventListener('click', () => {
-                sidebar.classList.toggle('show');
-            });
+            toggleBtn.addEventListener('click', openSidebar);
+        }
+        if (closeBtn) {
+            closeBtn.addEventListener('click', closeSidebar);
+        }
+        if (overlay) {
+            overlay.addEventListener('click', closeSidebar);
         }
     </script>
     {% block extra_js %}{% endblock %}
