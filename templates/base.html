@@ -119,7 +119,10 @@
         .bg-light-danger { background-color: #ffeef3; color: #f1416c; }
 
         @media (max-width: 992px) {
-            #sidebar { left: -var(--sidebar-width); }
+            #sidebar { 
+                left: -250px; 
+                width: 250px;
+            }
             #main-content, .navbar { margin-left: 0; }
             #sidebar.show { left: 0; box-shadow: 5px 0 25px rgba(0, 0, 0, 0.15); }
         }
