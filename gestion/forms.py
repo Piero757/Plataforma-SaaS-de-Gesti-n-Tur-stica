@@ -4,7 +4,7 @@ from django.contrib.auth.forms import UserCreationForm
 from .models import (
     Cliente, Proveedor, Producto, Compra, Venta, RegistroServicio, 
     Inventario, ConfiguracionEmpresa, Habitacion, Mesa, Reserva, PedidoHabitacion,
-    DetalleCompra, CuotaCompra
+    DetalleCompra, CuotaCompra, PerfilUsuario
 )
 
 class ClienteForm(forms.ModelForm):
@@ -61,7 +61,7 @@ class ProductoForm(forms.ModelForm):
         fields = [
             'codigo', 'nombre', 'descripcion', 'categoria', 'subcategoria', 
             'impuesto', 'precio_compra', 'precio_venta', 'precio_corporativo', 
-            'imagen'
+            'comision', 'imagen'
         ]
         widgets = {
             'codigo': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: PROD-001'}),
@@ -73,6 +73,7 @@ class ProductoForm(forms.ModelForm):
             'precio_compra': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': '0.00'}),
             'precio_venta': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': '0.00'}),
             'precio_corporativo': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': '0.00'}),
+            'comision': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': '0.00'}),
             'imagen': forms.FileInput(attrs={'class': 'form-control'}),
         }
 
@@ -150,12 +151,21 @@ class ServicioForm(forms.ModelForm):
         }
 
 class UsuarioCreateForm(forms.ModelForm):
-    password = forms.CharField(widget=forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': '••••••••'}))
-    is_staff = forms.BooleanField(required=False, initial=True, label="¿Es Administrador?", widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}))
+    password = forms.CharField(
+        required=False,
+        widget=forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Dejar en blanco para no cambiar'}),
+        label="Contraseña"
+    )
+    rol = forms.ChoiceField(
+        choices=PerfilUsuario.ROL_CHOICES,
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        label="Rol del Usuario",
+        initial='ADMIN'
+    )
 
     class Meta:
         model = User
-        fields = ['username', 'email', 'first_name', 'last_name', 'is_staff', 'is_superuser']
+        fields = ['username', 'email', 'first_name', 'last_name']
         widgets = {
             'username': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: jperez'}),
             'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'jperez@turismo.com'}),
@@ -163,11 +173,34 @@ class UsuarioCreateForm(forms.ModelForm):
             'last_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Pérez'}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Si estamos editando un usuario existente, cargamos su rol actual
+        if self.instance and self.instance.pk:
+            try:
+                self.fields['rol'].initial = self.instance.perfil.rol
+            except PerfilUsuario.DoesNotExist:
+                self.fields['rol'].initial = 'ADMIN'
+
     def save(self, commit=True):
         user = super().save(commit=False)
-        user.set_password(self.cleaned_data["password"])
+        password = self.cleaned_data.get('password')
+        if password:
+            user.set_password(password)
+        # Actualizar flags de staff/superuser según el rol
+        rol = self.cleaned_data.get('rol', 'ADMIN')
+        if rol == 'ADMIN':
+            user.is_staff = True
+            user.is_superuser = True
+        else:
+            user.is_staff = False
+            user.is_superuser = False
         if commit:
             user.save()
+            # Guardar o actualizar el perfil con el rol
+            perfil, _ = PerfilUsuario.objects.get_or_create(usuario=user)
+            perfil.rol = rol
+            perfil.save()
         return user
 
 class UserProfileForm(forms.ModelForm):
@@ -236,18 +269,58 @@ class HabitacionForm(forms.ModelForm):
         }
 
 class ReservaForm(forms.ModelForm):
+    cliente = forms.ModelChoiceField(
+        queryset=Cliente.objects.filter(activo=True),
+        required=False,
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        label="Cliente Registrado"
+    )
+
     class Meta:
         model = Reserva
-        fields = ['cliente', 'habitacion', 'fecha_ingreso', 'fecha_salida', 'total_hospedaje', 'adelanto', 'observaciones']
+        fields = [
+            'cliente', 'habitacion', 'fecha_ingreso', 'fecha_salida',
+            'total_hospedaje', 'adelanto', 'n_pax', 'hora_desayuno',
+            'placa_vehiculo', 'condicion_pago', 'observaciones'
+        ]
         widgets = {
-            'cliente': forms.Select(attrs={'class': 'form-select'}),
             'habitacion': forms.Select(attrs={'class': 'form-select'}),
             'fecha_ingreso': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
             'fecha_salida': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
-            'total_hospedaje': forms.NumberInput(attrs={'class': 'form-control'}),
-            'adelanto': forms.NumberInput(attrs={'class': 'form-control'}),
-            'observaciones': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+            'total_hospedaje': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'adelanto': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'n_pax': forms.NumberInput(attrs={'class': 'form-control', 'min': 1}),
+            'hora_desayuno': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 8:00 AM'}),
+            'placa_vehiculo': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: ABC-123 (opcional)'}),
+            'condicion_pago': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Efectivo, Yape, Tarjeta'}),
+            'observaciones': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Notas adicionales...'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from django.db.models import Q
+        
+        habitacion_qs = Habitacion.objects.filter(activo=True)
+        if self.instance and self.instance.pk:
+            habitacion_qs = habitacion_qs.filter(
+                Q(estado='DISPONIBLE') | 
+                Q(estado='LIMPIEZA') |
+                Q(estado='RESERVADA') |
+                Q(id=self.instance.habitacion_id)
+            )
+        else:
+            habitacion_qs = habitacion_qs.filter(
+                Q(estado='DISPONIBLE') | 
+                Q(estado='LIMPIEZA')
+            )
+        
+        self.fields['habitacion'].queryset = habitacion_qs
+        def label_hab(obj):
+            sufijo = ''
+            if obj.estado == 'LIMPIEZA':  sufijo = ' ⚠ En Limpieza'
+            if obj.estado == 'RESERVADA': sufijo = ' 📅 Reservada'
+            return f"Hab. {obj.numero} ({obj.get_tipo_display()}){sufijo}"
+        self.fields['habitacion'].label_from_instance = label_hab
 
 class PedidoHabitacionForm(forms.ModelForm):
     class Meta:

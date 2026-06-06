@@ -1,0 +1,180 @@
+{% extends 'base.html' %}
+
+{% block title %}Panel Jefe de Mozos | TurismoERP{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center gap-3 mb-4">
+    <h3 class="fw-bold m-0">Panel Jefe de Mozos</h3>
+    <span class="badge bg-primary fs-6">{{ mesas_ocupadas }}/{{ total_mesas }} mesas ocupadas</span>
+    {% if total_items_pendientes > 0 %}
+    <span class="badge bg-danger fs-6">{{ total_items_pendientes }} ítems pendientes</span>
+    {% endif %}
+</div>
+
+<!-- Tarjetas resumen -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm p-3 text-center">
+            <i data-lucide="layout-grid" class="text-primary mx-auto mb-2" style="width:32px;height:32px;"></i>
+            <h2 class="fw-bold m-0">{{ total_mesas }}</h2>
+            <small class="text-muted">Total Mesas</small>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm p-3 text-center">
+            <i data-lucide="users" class="text-danger mx-auto mb-2" style="width:32px;height:32px;"></i>
+            <h2 class="fw-bold text-danger m-0">{{ mesas_ocupadas }}</h2>
+            <small class="text-muted">Mesas Ocupadas</small>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm p-3 text-center">
+            <i data-lucide="check-square" class="text-success mx-auto mb-2" style="width:32px;height:32px;"></i>
+            <h2 class="fw-bold text-success m-0">{{ total_mesas|add:"-"|add:mesas_ocupadas }}</h2>
+            <small class="text-muted">Mesas Disponibles</small>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm p-3 text-center">
+            <i data-lucide="clock" class="text-warning mx-auto mb-2" style="width:32px;height:32px;"></i>
+            <h2 class="fw-bold text-warning m-0">{{ total_items_pendientes }}</h2>
+            <small class="text-muted">Ítems Pendientes</small>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Grid de Mesas -->
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm p-4">
+            <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                <i data-lucide="layout-grid" class="text-primary" style="width:20px;"></i> Estado de Mesas
+            </h5>
+            <div class="row g-2">
+                {% for mesa in mesas %}
+                <div class="col-4">
+                    <a href="{% url 'mesa_detalle' mesa.id %}" class="text-decoration-none">
+                        <div class="card border-0 shadow-sm p-3 text-center h-100
+                            {% if mesa.estado == 'OCUPADA' %}bg-danger bg-opacity-10{% elif mesa.estado == 'DISPONIBLE' %}bg-success bg-opacity-10{% else %}bg-warning bg-opacity-10{% endif %}">
+                            <i data-lucide="{% if mesa.estado == 'OCUPADA' %}users{% elif mesa.estado == 'DISPONIBLE' %}check-circle{% else %}clock{% endif %}"
+                                class="mx-auto mb-1
+                                {% if mesa.estado == 'OCUPADA' %}text-danger{% elif mesa.estado == 'DISPONIBLE' %}text-success{% else %}text-warning{% endif %}"
+                                style="width:24px;height:24px;"></i>
+                            <div class="fw-bold">Mesa {{ mesa.numero }}</div>
+                            <small class="{% if mesa.estado == 'OCUPADA' %}text-danger{% elif mesa.estado == 'DISPONIBLE' %}text-success{% else %}text-warning{% endif %}">
+                                {{ mesa.get_estado_display }}
+                            </small>
+                            {% for comanda in comandas_activas %}
+                                {% if comanda.mesa.id == mesa.id %}
+                                <small class="text-muted d-block">S/ {{ comanda.total|floatformat:2 }}</small>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Ítems Pendientes -->
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm p-4">
+            <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                <i data-lucide="clock" class="text-warning" style="width:20px;"></i> Ítems Pendientes en Cocina/Barra
+                <span class="badge bg-danger ms-auto">{{ total_items_pendientes }}</span>
+            </h5>
+            <div style="max-height: 420px; overflow-y: auto;">
+                {% if detalles_pendientes %}
+                <div class="list-group list-group-flush">
+                    {% for detalle in detalles_pendientes %}
+                    <div class="list-group-item px-0 py-2 border-dashed">
+                        <div class="d-flex align-items-start gap-2">
+                            <span class="badge bg-light-danger text-danger fw-bold">Mesa {{ detalle.venta.mesa.numero }}</span>
+                            {% if detalle.silla %}
+                            <span class="badge bg-light-warning text-warning">Silla {{ detalle.silla }}</span>
+                            {% endif %}
+                            <div class="flex-grow-1">
+                                <div class="fw-semibold small">{{ detalle.producto.nombre }}</div>
+                                <div class="text-muted" style="font-size:0.75rem;">
+                                    Cant: {{ detalle.cantidad }}
+                                    {% if detalle.observaciones %}
+                                    · <span class="text-info">{{ detalle.observaciones }}</span>
+                                    {% endif %}
+                                    {% if detalle.mozo %}
+                                    · Mozo: {{ detalle.mozo.get_full_name|default:detalle.mozo.username }}
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <form action="{% url 'actualizar_estado_comanda' detalle.id %}" method="POST">
+                                {% csrf_token %}
+                                <input type="hidden" name="estado" value="ACEPTADO">
+                                <button type="submit" class="btn btn-xs btn-success" style="font-size:0.7rem;padding:2px 7px;">
+                                    <i data-lucide="check" style="width:12px;"></i> Aceptar
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-5 text-muted">
+                    <i data-lucide="check-circle" class="mx-auto mb-2" style="width:36px;height:36px;color:#50cd89;"></i>
+                    <p>¡Todo al día! No hay ítems pendientes.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Comandas activas detalle -->
+{% if comandas_activas %}
+<div class="card border-0 shadow-sm p-4 mt-4">
+    <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">
+        <i data-lucide="clipboard-list" class="text-primary" style="width:20px;"></i> Comandas Activas
+    </h5>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Mesa</th>
+                    <th>Mozo</th>
+                    <th>Guía / Encargado</th>
+                    <th>Ítems</th>
+                    <th class="text-end">Total</th>
+                    <th>Inicio</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for comanda in comandas_activas %}
+                <tr>
+                    <td><span class="badge bg-danger fs-6">Mesa {{ comanda.mesa.numero }}</span></td>
+                    <td>{{ comanda.usuario.get_full_name|default:comanda.usuario.username }}</td>
+                    <td>
+                        {% if comanda.encargado_guia %}
+                        <span class="badge bg-light-info text-info">{{ comanda.encargado_guia }}</span>
+                        {% else %}
+                        <span class="text-muted small">—</span>
+                        {% endif %}
+                    </td>
+                    <td><span class="badge bg-light-primary text-primary">{{ comanda.detalles.count }}</span></td>
+                    <td class="text-end fw-bold text-primary">S/ {{ comanda.total|floatformat:2 }}</td>
+                    <td class="text-muted small">{{ comanda.fecha|date:"H:i" }}</td>
+                    <td>
+                        <a href="{% url 'mesa_detalle' comanda.mesa.id %}" class="btn btn-sm btn-light-primary d-inline-flex align-items-center gap-1">
+                            <i data-lucide="eye" style="width:14px;"></i> Ver
+                        </a>
+                        <a href="{% url 'ticket_print' comanda.id %}" target="_blank" class="btn btn-sm btn-light-secondary d-inline-flex align-items-center gap-1">
+                            <i data-lucide="printer" style="width:14px;"></i> Imprimir
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

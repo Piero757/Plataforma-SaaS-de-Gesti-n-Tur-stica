@@ -15,11 +15,32 @@
         <div class="card p-4 shadow-sm">
             <form method="post" id="reservaForm">
                 {% csrf_token %}
-                <div class="row g-3">
-                    <!-- Cliente -->
+                <div class="row g-4">
+                    <!-- Cliente Selector/Ingreso Rápido -->
                     <div class="col-md-6">
-                        <label for="{{ form.cliente.id_for_label }}" class="form-label fw-semibold text-muted small">{{ form.cliente.label }}</label>
-                        {{ form.cliente }}
+                        <label class="form-label fw-bold text-muted small mb-2"><i data-lucide="user" class="text-primary me-1" style="width: 16px; height: 16px;"></i> Huésped / Cliente</label>
+                        <div class="card bg-light border-0 p-2 mb-2">
+                            <div class="nav nav-pills nav-fill gap-1" id="clienteTabs" role="tablist">
+                                <button class="nav-link active py-1.5 fs-7 fw-semibold" id="tab-rapido-btn" data-bs-toggle="pill" data-bs-target="#tab-rapido" type="button" role="tab" aria-selected="true">
+                                    <i data-lucide="edit-3" class="me-1" style="width: 14px; height: 14px;"></i> Nombre Rápido
+                                </button>
+                                <button class="nav-link py-1.5 fs-7 fw-semibold" id="tab-registrado-btn" data-bs-toggle="pill" data-bs-target="#tab-registrado" type="button" role="tab" aria-selected="false">
+                                    <i data-lucide="search" class="me-1" style="width: 14px; height: 14px;"></i> Buscar Registrado
+                                </button>
+                            </div>
+                        </div>
+                        <div class="tab-content" id="clienteTabContent">
+                            <!-- Entrada rápida -->
+                            <div class="tab-pane fade show active" id="tab-rapido" role="tabpanel" aria-labelledby="tab-rapido-btn">
+                                <input type="text" name="nombre_cliente_rapido" id="id_nombre_cliente_rapido" class="form-control" placeholder="Ej: Paola Velarde">
+                                <div class="form-text text-muted small">Registra de inmediato sin DNI/RUC. Se autogenerará un código de cliente.</div>
+                            </div>
+                            <!-- Selector registrado -->
+                            <div class="tab-pane fade" id="tab-registrado" role="tabpanel" aria-labelledby="tab-registrado-btn">
+                                {{ form.cliente }}
+                                <div class="form-text text-muted small">Busca y asocia un cliente registrado formalmente en la base de datos.</div>
+                            </div>
+                        </div>
                         {% if form.cliente.errors %}
                             <div class="text-danger small mt-1">{{ form.cliente.errors }}</div>
                         {% endif %}
@@ -27,34 +48,17 @@
                     
                     <!-- Habitación -->
                     <div class="col-md-6">
-                        <label for="{{ form.habitacion.id_for_label }}" class="form-label fw-semibold text-muted small">{{ form.habitacion.label }}</label>
+                        <label for="{{ form.habitacion.id_for_label }}" class="form-label fw-bold text-muted small mb-2"><i data-lucide="key" class="text-primary me-1" style="width: 16px; height: 16px;"></i> Habitación</label>
                         {{ form.habitacion }}
+                        <div class="form-text text-muted small">Solo aparecen habitaciones <strong>Disponibles</strong> o <strong>En Limpieza</strong>.</div>
                         {% if form.habitacion.errors %}
                             <div class="text-danger small mt-1">{{ form.habitacion.errors }}</div>
                         {% endif %}
                     </div>
 
-                    <!-- PRECIO POR NOCHE (ESTABLECIDO PERO EDITABLE) -->
-                    <div class="col-md-6">
-                        <label for="precio_noche_editable" class="form-label fw-semibold text-muted small">
-                            Precio por Noche (S/) <span class="text-primary fw-bold">(Editable)</span>
-                        </label>
-                        <input type="number" id="precio_noche_editable" class="form-control fw-bold text-primary" step="0.01" value="0.00" min="0">
-                        <div class="form-text text-muted small">Tarifa de la habitación preestablecida. Puede cambiarla libremente para esta reserva.</div>
-                    </div>
-
-                    <!-- Adelanto -->
-                    <div class="col-md-6">
-                        <label for="{{ form.adelanto.id_for_label }}" class="form-label fw-semibold text-muted small">{{ form.adelanto.label }}</label>
-                        {{ form.adelanto }}
-                        {% if form.adelanto.errors %}
-                            <div class="text-danger small mt-1">{{ form.adelanto.errors }}</div>
-                        {% endif %}
-                    </div>
-
                     <!-- Fecha Ingreso -->
                     <div class="col-md-6">
-                        <label for="{{ form.fecha_ingreso.id_for_label }}" class="form-label fw-semibold text-muted small">{{ form.fecha_ingreso.label }}</label>
+                        <label for="{{ form.fecha_ingreso.id_for_label }}" class="form-label fw-bold text-muted small"><i data-lucide="calendar" class="text-primary me-1" style="width: 16px; height: 16px;"></i> Fecha de Ingreso</label>
                         {{ form.fecha_ingreso }}
                         {% if form.fecha_ingreso.errors %}
                             <div class="text-danger small mt-1">{{ form.fecha_ingreso.errors }}</div>
@@ -63,28 +67,67 @@
 
                     <!-- Fecha Salida -->
                     <div class="col-md-6">
-                        <label for="{{ form.fecha_salida.id_for_label }}" class="form-label fw-semibold text-muted small">{{ form.fecha_salida.label }}</label>
+                        <label for="{{ form.fecha_salida.id_for_label }}" class="form-label fw-bold text-muted small"><i data-lucide="calendar-check" class="text-primary me-1" style="width: 16px; height: 16px;"></i> Fecha de Salida</label>
                         {{ form.fecha_salida }}
                         {% if form.fecha_salida.errors %}
                             <div class="text-danger small mt-1">{{ form.fecha_salida.errors }}</div>
                         {% endif %}
                     </div>
 
-                    <!-- Total Hospedaje -->
-                    <div class="col-md-6">
-                        <label for="{{ form.total_hospedaje.id_for_label }}" class="form-label fw-semibold text-muted small">{{ form.total_hospedaje.label }}</label>
+                    <!-- Fila de Tarifas y Saldos -->
+                    <div class="col-md-4">
+                        <label for="precio_noche_editable" class="form-label fw-bold text-muted small">
+                            Precio por Noche (S/) <span class="text-primary fw-bold">(Editable)</span>
+                        </label>
+                        <input type="number" id="precio_noche_editable" class="form-control fw-bold text-primary" step="0.01" value="0.00" min="0">
+                    </div>
+
+                    <div class="col-md-4">
+                        <label for="{{ form.total_hospedaje.id_for_label }}" class="form-label fw-bold text-muted small">{{ form.total_hospedaje.label }} (Total)</label>
                         {{ form.total_hospedaje }}
-                        {% if form.total_hospedaje.errors %}
-                            <div class="text-danger small mt-1">{{ form.total_hospedaje.errors }}</div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label for="{{ form.adelanto.id_for_label }}" class="form-label fw-bold text-muted small">{{ form.adelanto.label }} (A cuenta)</label>
+                        {{ form.adelanto }}
+                    </div>
+
+                    <!-- Campos específicos del Cuaderno Físico -->
+                    <div class="col-md-3">
+                        <label for="{{ form.n_pax.id_for_label }}" class="form-label fw-bold text-muted small"><i data-lucide="users" class="text-primary me-1" style="width: 14px; height: 14px;"></i> N° PAX (Personas)</label>
+                        {{ form.n_pax }}
+                        {% if form.n_pax.errors %}
+                            <div class="text-danger small mt-1">{{ form.n_pax.errors }}</div>
                         {% endif %}
                     </div>
 
-                    <!-- Espacio en blanco para alineación -->
-                    <div class="col-md-6"></div>
+                    <div class="col-md-3">
+                        <label for="{{ form.hora_desayuno.id_for_label }}" class="form-label fw-bold text-muted small"><i data-lucide="coffee" class="text-primary me-1" style="width: 14px; height: 14px;"></i> Hora Desayuno</label>
+                        {{ form.hora_desayuno }}
+                        {% if form.hora_desayuno.errors %}
+                            <div class="text-danger small mt-1">{{ form.hora_desayuno.errors }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="col-md-3">
+                        <label for="{{ form.placa_vehiculo.id_for_label }}" class="form-label fw-bold text-muted small"><i data-lucide="car" class="text-primary me-1" style="width: 14px; height: 14px;"></i> Otros Placa</label>
+                        {{ form.placa_vehiculo }}
+                        {% if form.placa_vehiculo.errors %}
+                            <div class="text-danger small mt-1">{{ form.placa_vehiculo.errors }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="col-md-3">
+                        <label for="{{ form.condicion_pago.id_for_label }}" class="form-label fw-bold text-muted small"><i data-lucide="dollar-sign" class="text-primary me-1" style="width: 14px; height: 14px;"></i> Condición</label>
+                        {{ form.condicion_pago }}
+                        {% if form.condicion_pago.errors %}
+                            <div class="text-danger small mt-1">{{ form.condicion_pago.errors }}</div>
+                        {% endif %}
+                    </div>
 
                     <!-- Observaciones -->
                     <div class="col-md-12">
-                        <label for="{{ form.observaciones.id_for_label }}" class="form-label fw-semibold text-muted small">{{ form.observaciones.label }}</label>
+                        <label for="{{ form.observaciones.id_for_label }}" class="form-label fw-bold text-muted small">{{ form.observaciones.label }}</label>
                         {{ form.observaciones }}
                         {% if form.observaciones.errors %}
                             <div class="text-danger small mt-1">{{ form.observaciones.errors }}</div>
@@ -93,11 +136,25 @@
                 </div>
                 
                 <hr class="my-4 text-muted opacity-25">
-                
-                <div class="d-flex justify-content-end gap-2">
+
+                <!-- Campo oculto que indica la acción elegida -->
+                <input type="hidden" name="tipo_accion" id="tipo_accion" value="CHECKIN">
+
+                <div class="d-flex justify-content-end gap-2 flex-wrap">
                     <a href="{% url 'reserva_list' %}" class="btn btn-light">Cancelar</a>
-                    <button type="submit" class="btn btn-primary px-4">
-                        <i data-lucide="save" class="me-1" style="width: 18px;"></i> Guardar Check-in
+
+                    <!-- Botón Reservar (estado PENDIENTE) -->
+                    <button type="submit" id="btn-reservar"
+                        class="btn btn-outline-primary px-4 d-flex align-items-center gap-2"
+                        onclick="document.getElementById('tipo_accion').value='RESERVAR'">
+                        <i data-lucide="calendar-plus" style="width:18px;"></i> Guardar como Reserva
+                    </button>
+
+                    <!-- Botón Check-in directo -->
+                    <button type="submit" id="btn-checkin"
+                        class="btn btn-primary px-4 d-flex align-items-center gap-2"
+                        onclick="document.getElementById('tipo_accion').value='CHECKIN'">
+                        <i data-lucide="log-in" style="width:18px;"></i> Confirmar Check-in
                     </button>
                 </div>
             </form>
@@ -169,10 +226,59 @@
     // Al editar directamente el precio por noche, recalcula el total
     precioNocheInput.addEventListener('input', calcularTotal);
 
+    // Lógica para alternar campos de cliente según la pestaña activa
+    const tabRapidoBtn = document.getElementById('tab-rapido-btn');
+    const tabRegistradoBtn = document.getElementById('tab-registrado-btn');
+    const nombreClienteRapido = document.getElementById('id_nombre_cliente_rapido');
+    const clienteSelect = document.querySelector('select[name="cliente"]');
+
+    if (tabRapidoBtn && tabRegistradoBtn) {
+        tabRapidoBtn.addEventListener('click', function() {
+            if (clienteSelect) clienteSelect.value = "";
+            setTimeout(() => nombreClienteRapido.focus(), 150);
+        });
+
+        tabRegistradoBtn.addEventListener('click', function() {
+            if (nombreClienteRapido) nombreClienteRapido.value = "";
+        });
+    }
+
     // Inicializar valores al cargar
     window.addEventListener('load', function() {
         initPrecioNoche();
         calcularTotal();
+
+        // Si la URL contiene ?accion=reservar, pre-seleccionar modo Reserva
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('accion') === 'reservar') {
+            document.getElementById('tipo_accion').value = 'RESERVAR';
+            resaltarBoton('RESERVAR');
+        }
     });
+
+    // Resaltar el botón activo según la acción elegida
+    function resaltarBoton(accion) {
+        const btnReservar = document.getElementById('btn-reservar');
+        const btnCheckin  = document.getElementById('btn-checkin');
+        if (accion === 'RESERVAR') {
+            btnReservar.classList.remove('btn-outline-primary');
+            btnReservar.classList.add('btn-primary');
+            btnCheckin.classList.remove('btn-primary');
+            btnCheckin.classList.add('btn-outline-secondary');
+        } else {
+            btnCheckin.classList.remove('btn-outline-secondary');
+            btnCheckin.classList.add('btn-primary');
+            btnReservar.classList.remove('btn-primary');
+            btnReservar.classList.add('btn-outline-primary');
+        }
+    }
+
+    document.getElementById('btn-reservar').addEventListener('click', function() {
+        resaltarBoton('RESERVAR');
+    });
+    document.getElementById('btn-checkin').addEventListener('click', function() {
+        resaltarBoton('CHECKIN');
+    });
+
 </script>
 {% endblock %}

@@ -1,0 +1,223 @@
+{% extends 'base.html' %}
+
+{% block title %}Panel de Barra - TurismoERP{% endblock %}
+
+{% block extra_css %}
+<style>
+    .bar-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+        gap: 1.5rem;
+    }
+    .order-card {
+        border-radius: 16px;
+        border: 2px solid rgba(0, 0, 0, 0.06);
+        background: #fff;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.04);
+        transition: transform 0.2s, box-shadow 0.2s;
+        overflow: hidden;
+    }
+    .order-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 16px 40px rgba(0,0,0,0.08);
+    }
+    .order-header {
+        background: linear-gradient(135deg, #7239ea 0%, #5014d0 100%);
+        color: white;
+        padding: 1rem 1.25rem;
+    }
+    .item-row {
+        border-bottom: 1px dashed #e9ecef;
+        padding: 0.875rem 0;
+        transition: background 0.15s;
+    }
+    .item-row:last-child { border-bottom: none; }
+    .item-row:hover { background: #f8f9fa; border-radius: 8px; }
+    .badge-estado {
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        padding: 0.35rem 0.7rem;
+        border-radius: 50px;
+    }
+    .qty-badge {
+        background: #7239ea;
+        color: white;
+        font-weight: 800;
+        min-width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        flex-shrink: 0;
+    }
+    .action-btn {
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.8rem;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        transition: all 0.2s;
+    }
+    .action-btn:hover { transform: scale(1.03); }
+    .silla-badge {
+        background: #f3e8ff;
+        color: #6f42c1;
+        border: 1px solid #d8b4fe;
+        font-size: 0.7rem;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 50px;
+    }
+    .mozo-info {
+        font-size: 0.75rem;
+        color: #6c757d;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .empty-state {
+        background: linear-gradient(135deg, #f3e8ff 0%, #fff 100%);
+        border: 2px dashed #c4a1f0;
+        border-radius: 20px;
+        padding: 4rem 2rem;
+        text-align: center;
+    }
+    .countdown-bar {
+        background: rgba(255,255,255,0.3);
+        border-radius: 4px;
+        height: 4px;
+        margin-top: 8px;
+        overflow: hidden;
+    }
+    .countdown-bar-inner {
+        height: 100%;
+        background: rgba(255,255,255,0.8);
+        animation: countdown 30s linear forwards;
+    }
+    @keyframes countdown {
+        from { width: 100%; }
+        to { width: 0%; }
+    }
+</style>
+<meta http-equiv="refresh" content="30">
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+    <div>
+        <h2 class="fw-bold mb-0">🍹 Panel de Barra</h2>
+        <p class="text-muted mb-0 small">Solo bebidas y licores. Se actualiza automáticamente cada 30 segundos.</p>
+    </div>
+    <div class="d-flex align-items-center gap-3">
+        <div class="d-flex align-items-center gap-2 px-3 py-2 rounded-3" style="background:#f3e8ff; border:1px solid #d8b4fe;">
+            <span class="spinner-grow spinner-grow-sm" role="status" style="width:8px;height:8px;color:#7239ea;"></span>
+            <small class="fw-semibold" style="color:#7239ea;">Auto-refresh: 30s</small>
+        </div>
+        <button onclick="window.location.reload();" class="btn btn-light d-flex align-items-center gap-2">
+            <i data-lucide="refresh-cw" style="width: 16px;"></i> Actualizar
+        </button>
+    </div>
+</div>
+
+{% if pedidos_por_mesa %}
+<!-- Summary bar -->
+<div class="row g-3 mb-4">
+    <div class="col-auto">
+        <div class="px-4 py-2 rounded-3 d-flex align-items-center gap-2 fw-bold text-dark" style="background:#f3e8ff; border:1px solid #d8b4fe;">
+            <i data-lucide="layers" style="width:16px;height:16px;color:#7239ea;"></i>
+            {{ pedidos_por_mesa|length }} mesa{{ pedidos_por_mesa|length|pluralize:"s" }} activa{{ pedidos_por_mesa|length|pluralize:"s" }}
+        </div>
+    </div>
+</div>
+
+<div class="bar-grid">
+    {% for mesa_key, data in pedidos_por_mesa.items %}
+    <div class="card order-card">
+        <div class="order-header">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <h4 class="fw-bold mb-0" style="color:white;">🍹 {{ mesa_key }}</h4>
+                    {% if data.mesa %}
+                    <small style="color:rgba(255,255,255,0.8);">Capacidad: {{ data.mesa.capacidad }} personas</small>
+                    {% endif %}
+                </div>
+                <span class="badge rounded-pill fw-bold" style="background:rgba(255,255,255,0.25); color:white; font-size:0.85rem; padding:0.4rem 0.8rem;">
+                    {{ data.items|length }} bebida{{ data.items|length|pluralize:"s" }}
+                </span>
+            </div>
+            <div class="countdown-bar mt-2">
+                <div class="countdown-bar-inner"></div>
+            </div>
+        </div>
+        <div class="card-body px-4 py-3">
+            {% for item in data.items %}
+            <div class="item-row">
+                <div class="d-flex align-items-start gap-3">
+                    <div class="qty-badge">{{ item.detalle.cantidad }}</div>
+                    <div class="flex-grow-1">
+                        <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
+                            <span class="fw-bold text-dark" style="font-size:0.95rem; line-height:1.3;">{{ item.detalle.producto.nombre }}</span>
+                            <span class="badge-estado {% if item.estado == 'PENDIENTE' %}bg-danger text-white{% elif item.estado == 'ACEPTADO' %}bg-info text-white{% elif item.estado == 'EN_PREPARACION' %}bg-warning text-dark{% else %}bg-success text-white{% endif %}">
+                                {% if item.estado == 'PENDIENTE' %}🔴 Pendiente{% elif item.estado == 'ACEPTADO' %}🔵 Aceptado{% elif item.estado == 'EN_PREPARACION' %}🟡 Preparando{% else %}✅ Listo{% endif %}
+                            </span>
+                        </div>
+
+                        <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                            {% if item.detalle.silla %}
+                            <span class="silla-badge">🪑 Silla {{ item.detalle.silla }}</span>
+                            {% endif %}
+                            <span class="mozo-info">
+                                <i data-lucide="user" style="width:12px;height:12px;"></i>
+                                Mozo: <strong>{{ item.mozo_nombre }}</strong>
+                            </span>
+                        </div>
+
+                        {% if item.detalle.observaciones %}
+                        <div class="px-2 py-1 rounded-2 mb-2" style="background:#ffeef3; border-left:3px solid #f1416c; font-size:0.8rem; color:#842029;">
+                            <i data-lucide="alert-circle" style="width:12px;height:12px;" class="me-1"></i>
+                            <strong>Nota:</strong> {{ item.detalle.observaciones }}
+                        </div>
+                        {% endif %}
+
+                        <!-- Action buttons -->
+                        <form action="{% url 'actualizar_estado_comanda' item.detalle.id %}" method="post">
+                            {% csrf_token %}
+                            {% if item.estado == 'PENDIENTE' %}
+                            <button type="submit" name="estado" value="ACEPTADO" class="btn btn-success btn-sm action-btn w-100">
+                                <i data-lucide="check" style="width:13px;"></i> Aceptar Pedido
+                            </button>
+                            {% elif item.estado == 'ACEPTADO' %}
+                            <button type="submit" name="estado" value="EN_PREPARACION" class="btn btn-sm action-btn w-100" style="background:#7239ea; color:white;">
+                                <i data-lucide="zap" style="width:13px;"></i> Preparando
+                            </button>
+                            {% elif item.estado == 'EN_PREPARACION' %}
+                            <button type="submit" name="estado" value="LISTO" class="btn btn-success btn-sm action-btn w-100">
+                                <i data-lucide="check-check" style="width:13px;"></i> ¡Bebida Lista!
+                            </button>
+                            {% else %}
+                            <div class="d-flex align-items-center gap-2 text-success" style="font-size:0.8rem;">
+                                <i data-lucide="check-circle" style="width:14px;"></i>
+                                <span class="fw-semibold">Completado</span>
+                            </div>
+                            {% endif %}
+                        </form>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <div style="font-size:5rem; line-height:1; margin-bottom:1rem;">🍹</div>
+    <h3 class="fw-bold text-secondary mb-2">Sin bebidas pendientes</h3>
+    <p class="text-muted mb-0">Las bebidas y licores solicitados por los mozos aparecerán aquí automáticamente en tiempo real.</p>
+</div>
+{% endif %}
+{% endblock %}

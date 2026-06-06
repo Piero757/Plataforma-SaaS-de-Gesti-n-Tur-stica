@@ -1,69 +1,216 @@
 {% extends 'base.html' %}
 
-{% block title %}{% if es_historial %}{{ titulo }}{% else %}Habitaciones - TurismoERP{% endif %}{% endblock %}
+{% block title %}{% if es_historial %}{{ titulo }}{% else %}Habitaciones - TurismoERP{% endif %}{% block extra_css %}{% endblock %}{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap">
     <div>
-        <h2 class="fw-bold mb-0">{% if es_historial %}{{ titulo }}{% else %}Habitaciones{% endif %}</h2>
-        <p class="text-muted">Administra el estado y tipos de habitaciones del hotel</p>
+        <h2 class="fw-bold mb-0">{% if es_historial %}{{ titulo }}{% else %}🛎️ Gestión de Habitaciones{% endif %}</h2>
+        <p class="text-muted mb-0">Administra el estado, disponibilidad y asignación de habitaciones en tiempo real.</p>
     </div>
     <div class="d-flex gap-2">
         {% if es_historial %}
         <a href="{% url 'habitaciones_list' %}" class="btn btn-light d-flex align-items-center gap-2">
-            <i data-lucide="arrow-left"></i> Volver a Habitaciones
+            <i data-lucide="arrow-left" style="width: 16px;"></i> Volver a Habitaciones
         </a>
         {% else %}
         <a href="{% url 'habitaciones_historial' %}" class="btn btn-light d-flex align-items-center gap-2">
-            <i data-lucide="history"></i> Historial
+            <i data-lucide="history" style="width: 16px;"></i> Historial (Eliminadas)
         </a>
         <a href="{% url 'habitacion_create' %}" class="btn btn-primary d-flex align-items-center gap-2">
-            <i data-lucide="plus"></i> Nueva Habitación
+            <i data-lucide="plus" style="width: 16px;"></i> Nueva Habitación
         </a>
         {% endif %}
     </div>
 </div>
 
+{% if not es_historial %}
+<!-- Tarjeta de Filtros -->
+<div class="card mb-4 border-0 shadow-sm">
+    <div class="card-body p-3">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label small fw-bold text-muted">Tipo de Habitación</label>
+                <select name="tipo" class="form-select">
+                    <option value="">Todos los tipos</option>
+                    {% for val, label in tipos_habitacion %}
+                    <option value="{{ val }}" {% if filtro_tipo == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small fw-bold text-muted">Estado</label>
+                <select name="estado" class="form-select">
+                    <option value="">Todos los estados</option>
+                    {% for val, label in estados_habitacion %}
+                    <option value="{{ val }}" {% if filtro_estado == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small fw-bold text-muted">Disponible Desde</label>
+                <input type="date" name="fecha_desde" class="form-control" value="{{ fecha_desde }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small fw-bold text-muted">Disponible Hasta</label>
+                <input type="date" name="fecha_hasta" class="form-control" value="{{ fecha_hasta }}">
+            </div>
+            <div class="col-md-3 d-flex gap-2">
+                <button type="submit" class="btn btn-primary flex-grow-1 d-flex align-items-center justify-content-center gap-2">
+                    <i data-lucide="filter" style="width: 16px;"></i> Filtrar
+                </button>
+                <a href="{% url 'habitaciones_list' %}" class="btn btn-light" title="Limpiar Filtros">
+                    <i data-lucide="x" style="width: 16px;"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
 <div class="row g-4">
     {% for hab in habitaciones %}
     <div class="col-md-3">
-        <div class="card h-100 border-0 shadow-sm overflow-hidden">
+        <div class="card h-100 border-0 shadow-sm overflow-hidden d-flex flex-column">
             {% if hab.imagen %}
-            <div style="height: 160px; overflow: hidden;">
+            <div style="height: 160px; overflow: hidden; position: relative;">
                 <img src="{{ hab.imagen.url }}" class="card-img-top w-100 h-100 object-fit-cover" alt="Habitación {{ hab.numero }}">
+                <span class="position-absolute top-3 end-3 badge {% if hab.estado == 'DISPONIBLE' %}bg-success{% elif hab.estado == 'RESERVADA' %}bg-primary{% elif hab.estado == 'OCUPADA' %}bg-danger{% elif hab.estado == 'LIMPIEZA' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                    {% if hab.estado == 'RESERVADA' %}📅 {% endif %}{{ hab.get_estado_display }}
+                </span>
             </div>
             {% else %}
-            <div class="bg-light d-flex align-items-center justify-content-center" style="height: 160px;">
-                <i data-lucide="image" class="text-muted" style="width: 48px;"></i>
+            <div class="bg-light d-flex align-items-center justify-content-center position-relative" style="height: 160px;">
+                <i data-lucide="image" class="text-muted" style="width: 48px; height: 48px;"></i>
+                <span class="position-absolute top-3 end-3 badge {% if hab.estado == 'DISPONIBLE' %}bg-success{% elif hab.estado == 'RESERVADA' %}bg-primary{% elif hab.estado == 'OCUPADA' %}bg-danger{% elif hab.estado == 'LIMPIEZA' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                    {% if hab.estado == 'RESERVADA' %}📅 {% endif %}{{ hab.get_estado_display }}
+                </span>
             </div>
             {% endif %}
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-start mb-3">
-                    <div class="h1 fw-bold text-primary mb-0">#{{ hab.numero }}</div>
-                    <span class="badge {% if hab.estado == 'DISPONIBLE' %}bg-light-success{% elif hab.estado == 'OCUPADA' %}bg-light-danger{% else %}bg-light-warning{% endif %}">
-                        {{ hab.get_estado_display }}
-                    </span>
+            <div class="card-body p-4 d-flex flex-column flex-grow-1">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div class="h2 fw-bold text-primary mb-0">#{{ hab.numero }}</div>
+                    <div class="h4 fw-bold text-dark mb-0">S/ {{ hab.precio_noche }}</div>
                 </div>
-                <h5 class="fw-bold mb-1">{{ hab.get_tipo_display }}</h5>
-                <p class="text-muted small mb-3 text-truncate-2">{{ hab.descripcion|default:"Sin descripción adicional." }}</p>
-                <div class="h4 fw-bold text-dark">S/ {{ hab.precio_noche }} <small class="text-muted fw-normal" style="font-size: 0.8rem;">/ noche</small></div>
+                <h5 class="fw-bold mb-1 text-dark">{{ hab.get_tipo_display }}</h5>
+                <p class="text-muted small mb-3 flex-grow-1" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                    {{ hab.descripcion|default:"Sin descripción adicional disponible." }}
+                </p>
+
+                <!-- Info de Reserva Pendiente -->
+                {% if hab.estado == 'RESERVADA' and hab.reserva_activa %}
+                <div class="mt-auto border-top pt-3">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <i data-lucide="calendar" style="width:14px;" class="text-primary"></i>
+                        <span class="small fw-semibold text-dark">{{ hab.reserva_activa.cliente.nombre_razon_social }}</span>
+                    </div>
+                    <div class="d-flex gap-3 small text-muted mb-0">
+                        <span><i data-lucide="log-in" style="width:12px;" class="me-1"></i>{{ hab.reserva_activa.fecha_ingreso|date:"d/m H:i" }}</span>
+                        <span><i data-lucide="log-out" style="width:12px;" class="me-1"></i>{{ hab.reserva_activa.fecha_salida|date:"d/m H:i" }}</span>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Lógica y Badges según estado de Limpieza -->
+                {% if hab.estado == 'LIMPIEZA' %}
+                <div class="mt-auto border-top pt-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="small fw-semibold text-muted">Estado de Limpieza:</span>
+                        <span class="badge 
+                            {% if hab.subestado_limpieza == 'PENDIENTE' %}bg-light-danger text-danger
+                            {% elif hab.subestado_limpieza == 'RECIBIDO' %}bg-light-info text-info
+                            {% elif hab.subestado_limpieza == 'LIMPIANDO' %}bg-light-warning text-warning
+                            {% else %}bg-light-success text-success{% endif %}">
+                            {{ hab.get_subestado_limpieza_display }}
+                        </span>
+                    </div>
+                    {% if hab.personal_limpieza %}
+                    <div class="small mb-3 text-dark">
+                        <i data-lucide="user" style="width: 14px; height: 14px;" class="me-1"></i>
+                        Asignado a: <strong>{{ hab.personal_limpieza.get_full_name|default:hab.personal_limpieza.username }}</strong>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Asignar Personal -->
+                    <form action="{% url 'habitacion_liberar' hab.id %}" method="post" class="w-100">
+                        {% csrf_token %}
+                        <select name="personal_limpieza" class="form-select form-select-sm" onchange="this.form.submit()">
+                            <option value="">-- Asignar a... --</option>
+                            {% for p in personales_limpieza %}
+                            <option value="{{ p.id }}" {% if hab.personal_limpieza == p %}selected{% endif %}>{{ p.get_full_name|default:p.username }}</option>
+                            {% endfor %}
+                        </select>
+                    </form>
+                </div>
+                {% endif %}
             </div>
-            <div class="card-footer bg-light border-0 d-flex justify-content-between py-3">
-                <div class="d-flex gap-1">
-                    {% if es_historial %}
-                    <a href="{% url 'habitacion_restore' hab.id %}" class="btn btn-sm btn-success px-3 d-flex align-items-center gap-1" title="Restaurar Habitación">
-                        <i data-lucide="refresh-cw" style="width: 14px;"></i> Restaurar
-                    </a>
-                    {% else %}
-                    <a href="{% url 'habitacion_update' hab.id %}" class="btn btn-sm btn-outline-secondary border-0" title="Editar"><i data-lucide="edit-2"></i></a>
-                    <a href="{% url 'habitacion_delete' hab.id %}" class="btn btn-sm btn-outline-danger border-0" title="Mover al Historial" onclick="return confirm('¿Seguro que desea eliminar esta habitación? Se moverá al historial.')"><i data-lucide="trash-2"></i></a>
+            
+            <div class="card-footer bg-light border-0 d-flex flex-column gap-2 py-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex gap-1">
+                        {% if es_historial %}
+                        <a href="{% url 'habitacion_restore' hab.id %}" class="btn btn-sm btn-success px-3 d-flex align-items-center gap-1" title="Restaurar Habitación">
+                            <i data-lucide="refresh-cw" style="width: 14px;"></i> Restaurar
+                        </a>
+                        {% else %}
+                        <a href="{% url 'habitacion_update' hab.id %}" class="btn btn-sm btn-outline-secondary border-0" title="Editar"><i data-lucide="edit-2" style="width: 16px;"></i></a>
+                        <a href="{% url 'habitacion_delete' hab.id %}" class="btn btn-sm btn-outline-danger border-0" title="Mover al Historial" onclick="return confirm('¿Seguro que desea eliminar esta habitación? Se moverá al historial.')"><i data-lucide="trash-2" style="width: 16px;"></i></a>
+                        {% endif %}
+                    </div>
+                    
+                    {% if not es_historial %}
+                        {% if hab.estado == 'DISPONIBLE' %}
+                        <div class="d-flex gap-1">
+                            <a href="{% url 'reserva_create' %}?hab={{ hab.id }}&accion=reservar"
+                               class="btn btn-sm btn-outline-primary px-2 fw-semibold" title="Registrar reserva futura">
+                                <i data-lucide="calendar-plus" style="width:14px;"></i> Reservar
+                            </a>
+                            <a href="{% url 'reserva_create' %}?hab={{ hab.id }}"
+                               class="btn btn-sm btn-primary px-2 fw-semibold">Check-in</a>
+                        </div>
+                        {% endif %}
                     {% endif %}
                 </div>
-                
-                {% if not es_historial %}
-                    {% if hab.estado == 'DISPONIBLE' %}
-                    <a href="{% url 'reserva_create' %}?hab={{ hab.id }}" class="btn btn-sm btn-primary px-3">Check-in</a>
-                    {% endif %}
+
+                <!-- Botones contextuales para habitaciones RESERVADAS -->
+                {% if hab.estado == 'RESERVADA' and hab.reserva_activa %}
+                <div class="d-grid gap-2 border-top pt-2 mt-1">
+                    <a href="{% url 'reserva_hacer_checkin' hab.reserva_activa.id %}"
+                       class="btn btn-sm btn-primary w-100 d-flex align-items-center justify-content-center gap-1">
+                        <i data-lucide="log-in" style="width: 14px; height: 14px;"></i> Hacer Check-in
+                    </a>
+                    <a href="{% url 'reserva_detalle' hab.reserva_activa.id %}"
+                       class="btn btn-sm btn-outline-secondary w-100 d-flex align-items-center justify-content-center gap-1">
+                        <i data-lucide="eye" style="width: 14px; height: 14px;"></i> Ver Detalle
+                    </a>
+                </div>
+                {% endif %}
+
+                <!-- Botones contextuales para habitaciones OCUPADAS -->
+                {% if hab.estado == 'OCUPADA' and hab.reserva_activa %}
+                <div class="d-grid gap-2 border-top pt-2 mt-1">
+                    <button type="button" class="btn btn-sm btn-light-primary d-flex align-items-center justify-content-center gap-1 py-1.5" onclick="showGuestModal({{ hab.reserva_activa.id }})">
+                        <i data-lucide="user" style="width: 14px; height: 14px;"></i> Ver Huésped
+                    </button>
+                    <div class="row g-1">
+                        <div class="col-6">
+                            <a href="{% url 'pedido_habitacion_create' hab.reserva_activa.id %}" class="btn btn-sm btn-outline-primary w-100 py-1.5 d-flex align-items-center justify-content-center gap-1">
+                                <i data-lucide="shopping-bag" style="width: 12px; height: 12px;"></i> Pedido
+                            </a>
+                        </div>
+                        <div class="col-6">
+                            <a href="{% url 'reserva_checkout' hab.reserva_activa.id %}" class="btn btn-sm btn-danger w-100 py-1.5 d-flex align-items-center justify-content-center gap-1">
+                                <i data-lucide="log-out" style="width: 12px; height: 12px;"></i> Checkout
+                            </a>
+                        </div>
+                    </div>
+                    <form action="{% url 'habitacion_liberar' hab.id %}" method="post">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-warning text-white w-100 py-1.5 d-flex align-items-center justify-content-center gap-1">
+                            <i data-lucide="sparkles" style="width: 12px; height: 12px;"></i> Liberar / Limpieza
+                        </button>
+                    </form>
+                </div>
                 {% endif %}
             </div>
         </div>
@@ -71,10 +218,61 @@
     {% empty %}
     <div class="col-12 text-center py-5">
         <div class="text-muted mb-3">
-            <i data-lucide="layout" style="width: 64px; height: 64px; opacity: 0.2;"></i>
+            <i data-lucide="bed" style="width: 64px; height: 64px; opacity: 0.2;"></i>
         </div>
-        <h4 class="text-muted">No hay habitaciones registradas {% if es_historial %}en el historial{% endif %}.</h4>
+        <h4 class="text-muted">No se encontraron habitaciones registradas.</h4>
     </div>
     {% endfor %}
 </div>
+
+<!-- Modal para ver huésped -->
+<div class="modal fade" id="guestModal" tabindex="-1" aria-labelledby="clienteModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" id="modalContent">
+            <!-- Cargado vía AJAX -->
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Cargando...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function showGuestModal(resId) {
+        const contentDiv = document.getElementById('modalContent');
+        contentDiv.innerHTML = `
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Cargando datos...</span>
+                </div>
+            </div>
+        `;
+        var myModal = new bootstrap.Modal(document.getElementById('guestModal'));
+        myModal.show();
+
+        fetch(`/habitaciones/cliente/${resId}/`)
+            .then(response => {
+                if (!response.ok) throw new Error("Error en la solicitud.");
+                return response.text();
+            })
+            .then(html => {
+                contentDiv.innerHTML = html;
+            })
+            .catch(err => {
+                contentDiv.innerHTML = `
+                    <div class="modal-header">
+                        <h5 class="modal-title text-danger">Error</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body py-4">
+                        <p class="text-muted">No se pudieron cargar los datos del huésped. Intente nuevamente.</p>
+                    </div>
+                `;
+            });
+    }
+</script>
 {% endblock %}

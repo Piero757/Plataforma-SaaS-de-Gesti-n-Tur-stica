@@ -1,10 +1,39 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 MODULO_CHOICES = [
     ('HOTEL', 'Hotel'),
     ('RESTAURANTE', 'Restaurante'),
 ]
+
+class PerfilUsuario(models.Model):
+    ROL_CHOICES = [
+        ('ADMIN', 'Administrador'),
+        ('MOZO', 'Mozo'),
+        ('JEFE_MOZO', 'Jefe de Mozos'),
+        ('COCINA', 'Cocina'),
+        ('BARRA', 'Barra'),
+        ('LIMPIEZA', 'Limpieza'),
+    ]
+    usuario = models.OneToOneField(User, on_delete=models.CASCADE, related_name='perfil')
+    rol = models.CharField(max_length=20, choices=ROL_CHOICES, default='ADMIN')
+
+    def __str__(self):
+        return f"{self.usuario.username} ({self.get_rol_display()})"
+
+@receiver(post_save, sender=User)
+def crear_perfil_usuario(sender, instance, created, **kwargs):
+    """Crea automáticamente un PerfilUsuario cuando se crea un User."""
+    if created:
+        PerfilUsuario.objects.get_or_create(usuario=instance, defaults={'rol': 'ADMIN'})
+
+@receiver(post_save, sender=User)
+def guardar_perfil_usuario(sender, instance, **kwargs):
+    """Guarda el perfil cuando se actualiza el User."""
+    if hasattr(instance, 'perfil'):
+        instance.perfil.save()
 
 class Cliente(models.Model):
     TIPO_DOCUMENTO = [
@@ -77,6 +106,7 @@ class Producto(models.Model):
     precio_compra = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     precio_venta = models.DecimalField(max_digits=10, decimal_places=2)
     precio_corporativo = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, verbose_name="Precio Corporativo")
+    comision = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, verbose_name="Comisión del Plato")
     stock_minimo = models.PositiveIntegerField(default=5)
     stock_ideal = models.PositiveIntegerField(default=0)
     stock_alerta = models.PositiveIntegerField(default=0)
@@ -125,6 +155,9 @@ class Venta(models.Model):
     forma_pago = models.CharField(max_length=10, choices=FORMA_PAGO, default='CONTADO')
     estado_sunat = models.CharField(max_length=20, choices=ESTADO_SUNAT, default='PENDIENTE')
     observaciones = models.TextField(blank=True, null=True)
+    encargado_guia = models.CharField(max_length=200, blank=True, null=True, verbose_name="Guía / Encargado")
+    pago_tarjeta = models.BooleanField(default=False, verbose_name="Pago con Tarjeta")
+    recargo_tarjeta = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, verbose_name="Recargo Tarjeta (5%)")
     modulo = models.CharField(max_length=20, choices=MODULO_CHOICES, default='HOTEL')
     mesa = models.ForeignKey('Mesa', on_delete=models.SET_NULL, null=True, blank=True)
     es_comanda = models.BooleanField(default=False, help_text="Si es True, es un pedido abierto en mesa")
@@ -138,6 +171,10 @@ class DetalleVenta(models.Model):
     cantidad = models.PositiveIntegerField()
     precio_unitario = models.DecimalField(max_digits=10, decimal_places=2)
     subtotal = models.DecimalField(max_digits=10, decimal_places=2)
+    silla = models.PositiveIntegerField(null=True, blank=True, help_text="Número de silla en la mesa")
+    mozo = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='pedidos_mozo')
+    observaciones = models.TextField(blank=True, null=True, help_text="Petición especial o detalles del cliente")
+    incluido_tour = models.BooleanField(default=False, verbose_name="Incluido con el Tour")
 
     def __str__(self):
         return f"Detalle {self.venta.id} - {self.producto.nombre}"
@@ -239,6 +276,7 @@ class ConfiguracionEmpresa(models.Model):
         ('CIRCULAR', 'Circular (Avatar)'),
     ]
     forma_logo = models.CharField(max_length=20, choices=FORMA_LOGO, default='RECTANGULAR')
+    izipay_comision_porcentaje = models.DecimalField(max_digits=5, decimal_places=2, default=4.00, verbose_name="Comisión Izipay (%)")
     
     ruta_referencia = models.CharField(max_length=255, blank=True, null=True, help_text="Ruta local de instalación o backups")
     
@@ -265,6 +303,7 @@ class ConfiguracionEmpresa(models.Model):
 class Habitacion(models.Model):
     ESTADO_CHOICES = [
         ('DISPONIBLE', 'Disponible'),
+        ('RESERVADA', 'Reservada'),
         ('OCUPADA', 'Ocupada'),
         ('LIMPIEZA', 'En Limpieza'),
         ('MANTENIMIENTO', 'Mantenimiento'),
@@ -283,6 +322,14 @@ class Habitacion(models.Model):
     estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='DISPONIBLE')
     imagen = models.ImageField(upload_to='habitaciones/', blank=True, null=True)
     descripcion = models.TextField(blank=True, null=True)
+    SUBESTADO_LIMPIEZA_CHOICES = [
+        ('PENDIENTE', 'Pendiente'),
+        ('RECIBIDO', 'Recibido'),
+        ('LIMPIANDO', 'En Limpieza'),
+        ('TERMINADO', 'Terminado'),
+    ]
+    subestado_limpieza = models.CharField(max_length=20, choices=SUBESTADO_LIMPIEZA_CHOICES, default='PENDIENTE')
+    personal_limpieza = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='habitaciones_limpieza')
     activo = models.BooleanField(default=True)
 
     def __str__(self):
@@ -319,6 +366,11 @@ class Reserva(models.Model):
     total_hospedaje = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     adelanto = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     observaciones = models.TextField(blank=True, null=True)
+    n_pax = models.PositiveIntegerField(default=1, verbose_name="N° PAX")
+    hora_desayuno = models.CharField(max_length=50, blank=True, null=True, verbose_name="Hora Desayuno")
+    placa_vehiculo = models.CharField(max_length=50, blank=True, null=True, verbose_name="Placa / Otros")
+    condicion_pago = models.CharField(max_length=100, blank=True, null=True, verbose_name="Condición de Pago")
+    codigo_grupo = models.CharField(max_length=100, blank=True, null=True, db_index=True, verbose_name="Código de Grupo")
     activo = models.BooleanField(default=True)
     fecha_creacion = models.DateTimeField(auto_now_add=True)
 
@@ -337,3 +389,19 @@ class PedidoHabitacion(models.Model):
 
     def __str__(self):
         return f"Pedido {self.id} - Hab. {self.reserva.habitacion.numero}"
+
+class EstadoComanda(models.Model):
+    """Rastreo del estado de cada ítem de una comanda (para cocina y barra)."""
+    ESTADOS = [
+        ('PENDIENTE', 'Pendiente'),
+        ('ACEPTADO', 'Aceptado'),
+        ('EN_PREPARACION', 'En Preparación'),
+        ('LISTO', 'Listo'),
+    ]
+    detalle = models.OneToOneField(DetalleVenta, on_delete=models.CASCADE, related_name='estado_comanda')
+    estado = models.CharField(max_length=20, choices=ESTADOS, default='PENDIENTE')
+    actualizado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Comanda {self.detalle.id} - {self.get_estado_display()}"

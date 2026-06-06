@@ -36,13 +36,15 @@
                     <td>{{ usuario.get_full_name|default:usuario.username }}</td>
                     <td>{{ usuario.email }}</td>
                     <td>
-                        {% if usuario.is_superuser %}
-                            <span class="badge bg-light-danger text-danger">Administrador</span>
-                        {% elif usuario.is_staff %}
-                            <span class="badge bg-light-primary text-primary">Staff</span>
-                        {% else %}
-                            <span class="badge bg-light-success text-success">Operador</span>
-                        {% endif %}
+                        <span class="badge 
+                            {% if usuario.perfil.rol == 'ADMIN' %}bg-light-danger text-danger
+                            {% elif usuario.perfil.rol == 'COCINA' %}bg-light-warning text-warning
+                            {% elif usuario.perfil.rol == 'BARRA' %}bg-light-info text-info
+                            {% elif usuario.perfil.rol == 'MOZO' %}bg-light-primary text-primary
+                            {% elif usuario.perfil.rol == 'LIMPIEZA' %}bg-light-success text-success
+                            {% else %}bg-light-secondary text-secondary{% endif %}">
+                            {{ usuario.perfil.get_rol_display|default:"Administrador" }}
+                        </span>
                     </td>
                     <td>
                         {% if usuario.is_active %}

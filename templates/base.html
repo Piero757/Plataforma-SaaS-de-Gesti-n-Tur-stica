@@ -230,6 +230,7 @@
         </div>
         
         <nav class="nav flex-column">
+            {% if not request.user.perfil.rol or request.user.perfil.rol == 'ADMIN' or request.user.is_superuser %}
             <!-- DASHBOARD -->
             <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}">
                 <i data-lucide="layout-grid"></i> Dashboard
@@ -251,6 +252,7 @@
             {% if request.session.modulo == 'RESTAURANTE' %}
             <div class="px-4 pt-3 pb-1"><small class="text-muted fw-bold uppercase" style="font-size: 10px; letter-spacing: 1px;">Restaurante</small></div>
             <a href="{% url 'restaurante' %}" class="nav-link"><i data-lucide="layout-template"></i> Mapa de Mesas</a>
+            <a href="{% url 'jefe_mozos_panel' %}" class="nav-link"><i data-lucide="layout-dashboard"></i> Panel Jefe Mozos</a>
             <a href="{% url 'mesas_list' %}" class="nav-link"><i data-lucide="settings-2"></i> Gestión de Mesas</a>
             <a href="{% url 'carta_lista' %}" class="nav-link"><i data-lucide="book-open"></i> Carta / Menú</a>
             <a href="{% url 'ventas_list' %}" class="nav-link"><i data-lucide="history"></i> Historial de Ventas</a>
@@ -259,7 +261,7 @@
             <a href="{% url 'habitaciones_list' %}" class="nav-link"><i data-lucide="bed"></i> Habitaciones</a>
             <a href="{% url 'reserva_list' %}" class="nav-link"><i data-lucide="key"></i> Recepción</a>
             <a href="{% url 'servicios_list' %}" class="nav-link"><i data-lucide="briefcase"></i> Servicios</a>
-{% endif %}
+            {% endif %}
 
             <!-- BACKOFFICE COMPARTIDO -->
             <div class="px-4 pt-3 pb-1"><small class="text-muted fw-bold uppercase" style="font-size: 10px; letter-spacing: 1px;">Administración</small></div>
@@ -268,6 +270,30 @@
             <a href="{% url 'facturacion_list' %}" class="nav-link"><i data-lucide="file-text"></i> Facturación</a>
             <a href="{% url 'reportes' %}" class="nav-link"><i data-lucide="bar-chart-3"></i> Reportes</a>
             <a href="{% url 'configuracion_empresa' %}" class="nav-link"><i data-lucide="settings"></i> Configuración</a>
+            
+            {% elif request.user.perfil.rol == 'COCINA' %}
+            <div class="px-4 pt-3 pb-1"><small class="text-muted fw-bold uppercase" style="font-size: 10px; letter-spacing: 1px;">Cocina</small></div>
+            <a href="{% url 'cocina' %}" class="nav-link active"><i data-lucide="chef-hat"></i> Panel de Cocina</a>
+            
+            {% elif request.user.perfil.rol == 'BARRA' %}
+            <div class="px-4 pt-3 pb-1"><small class="text-muted fw-bold uppercase" style="font-size: 10px; letter-spacing: 1px;">Barra</small></div>
+            <a href="{% url 'barra' %}" class="nav-link active"><i data-lucide="glass-water"></i> Panel de Barra</a>
+            
+            {% elif request.user.perfil.rol == 'LIMPIEZA' %}
+            <div class="px-4 pt-3 pb-1"><small class="text-muted fw-bold uppercase" style="font-size: 10px; letter-spacing: 1px;">Limpieza</small></div>
+            <a href="{% url 'limpieza' %}" class="nav-link active"><i data-lucide="sparkles"></i> Panel de Limpieza</a>
+            
+            {% elif request.user.perfil.rol == 'MOZO' %}
+            <div class="px-4 pt-3 pb-1"><small class="text-muted fw-bold uppercase" style="font-size: 10px; letter-spacing: 1px;">Restaurante</small></div>
+            <a href="{% url 'restaurante' %}" class="nav-link"><i data-lucide="layout-template"></i> Mapa de Mesas</a>
+            <a href="{% url 'carta_lista' %}" class="nav-link"><i data-lucide="book-open"></i> Carta / Menú</a>
+
+            {% elif request.user.perfil.rol == 'JEFE_MOZO' %}
+            <div class="px-4 pt-3 pb-1"><small class="text-muted fw-bold uppercase" style="font-size: 10px; letter-spacing: 1px;">Jefe de Mozos</small></div>
+            <a href="{% url 'jefe_mozos_panel' %}" class="nav-link"><i data-lucide="layout-dashboard"></i> Panel General</a>
+            <a href="{% url 'restaurante' %}" class="nav-link"><i data-lucide="layout-template"></i> Mapa de Mesas</a>
+            <a href="{% url 'carta_lista' %}" class="nav-link"><i data-lucide="book-open"></i> Carta / Menú</a>
+            {% endif %}
         </nav>
     </aside>
 

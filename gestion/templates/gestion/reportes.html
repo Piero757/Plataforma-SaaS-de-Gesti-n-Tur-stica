@@ -88,6 +88,11 @@
             <i data-lucide="boxes"></i> 4. Reporte de Inventario
         </button>
     </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link py-3 fw-bold d-flex align-items-center justify-content-center gap-2" id="restaurante-tab" data-bs-toggle="tab" data-bs-target="#restaurante-pane" type="button" role="tab">
+            <i data-lucide="utensils"></i> 5. Restaurante y Turismo
+        </button>
+    </li>
 </ul>
 
 <div class="tab-content" id="reportTabsContent">
@@ -365,6 +370,198 @@
                 </table>
             </div>
         </div>
+    </div>
+
+    <!-- TAB 5: RESTAURANTE Y TURISMO -->
+    <div class="tab-pane fade" id="restaurante-pane" role="tabpanel" aria-labelledby="restaurante-tab">
+
+        <!-- KPIs -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm p-3 text-center">
+                    <i data-lucide="utensils" class="text-primary mx-auto mb-2" style="width:28px;height:28px;"></i>
+                    <h4 class="fw-bold m-0 text-primary">S/ {{ total_rest|floatformat:2 }}</h4>
+                    <small class="text-muted">Total Ventas Restaurante</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm p-3 text-center">
+                    <i data-lucide="credit-card" class="text-warning mx-auto mb-2" style="width:28px;height:28px;"></i>
+                    <h4 class="fw-bold m-0 text-warning">S/ {{ total_rest_tarjeta|floatformat:2 }}</h4>
+                    <small class="text-muted">Recargos Tarjeta (5%)</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm p-3 text-center">
+                    <i data-lucide="package-check" class="text-success mx-auto mb-2" style="width:28px;height:28px;"></i>
+                    <h4 class="fw-bold m-0 text-success">{{ items_incluidos_tour }}</h4>
+                    <small class="text-muted">Ítems Incluidos en Tour</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm p-3 text-center">
+                    <i data-lucide="receipt" class="text-info mx-auto mb-2" style="width:28px;height:28px;"></i>
+                    <h4 class="fw-bold m-0 text-info">{{ ventas_rest|length }}</h4>
+                    <small class="text-muted">Cuentas Cerradas</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4 mb-4">
+            <!-- Platos más vendidos -->
+            <div class="col-lg-6">
+                <div class="card border-0 shadow-sm p-4 h-100">
+                    <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                        <i data-lucide="bar-chart-2" class="text-primary" style="width:18px;"></i> Platos / Bebidas más Vendidos
+                    </h5>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle small">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Producto</th>
+                                    <th>Categoría</th>
+                                    <th class="text-center">Cant.</th>
+                                    <th class="text-end">Ingresos</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for p in platos_mas_vendidos %}
+                                <tr>
+                                    <td class="fw-semibold">{{ p.producto__nombre }}</td>
+                                    <td><span class="badge bg-light text-dark">{{ p.producto__subcategoria|default:"—" }}</span></td>
+                                    <td class="text-center fw-bold">{{ p.total_vendido }}</td>
+                                    <td class="text-end text-primary fw-bold">S/ {{ p.total_ingresos|floatformat:2 }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="4" class="text-center text-muted py-3">Sin datos en el período.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ventas por Mozo -->
+            <div class="col-lg-6">
+                <div class="card border-0 shadow-sm p-4 h-100">
+                    <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                        <i data-lucide="user" class="text-warning" style="width:18px;"></i> Rendimiento por Mozo
+                    </h5>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle small">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Mozo</th>
+                                    <th class="text-center">Ítems</th>
+                                    <th class="text-end">Ingresos</th>
+                                    <th class="text-end">Comisión</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for m in ventas_por_mozo %}
+                                <tr>
+                                    <td class="fw-semibold">
+                                        {{ m.mozo__first_name }} {{ m.mozo__last_name }}
+                                        <small class="text-muted d-block">@{{ m.mozo__username }}</small>
+                                    </td>
+                                    <td class="text-center">{{ m.total_items }}</td>
+                                    <td class="text-end text-primary fw-bold">S/ {{ m.total_ingresos|floatformat:2 }}</td>
+                                    <td class="text-end text-success fw-bold">
+                                        {% for c in comisiones_list %}
+                                            {% if c.nombre == m.mozo__first_name|add:" "|add:m.mozo__last_name or c.nombre == m.mozo__username %}
+                                                S/ {{ c.total_comision|floatformat:2 }}
+                                            {% endif %}
+                                        {% endfor %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="4" class="text-center text-muted py-3">Sin datos en el período.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Guías / Encargados -->
+        {% if guias_report %}
+        <div class="card border-0 shadow-sm p-4 mb-4">
+            <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                <i data-lucide="user-check" class="text-info" style="width:18px;"></i> Guías / Encargados con más Consumos
+            </h5>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle small">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Guía / Encargado</th>
+                            <th class="text-center">N° Cuentas</th>
+                            <th class="text-end">Total Generado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for g in guias_report %}
+                        <tr>
+                            <td class="fw-semibold">{{ g.encargado_guia }}</td>
+                            <td class="text-center"><span class="badge bg-light-info text-info">{{ g.total_ventas }}</span></td>
+                            <td class="text-end text-primary fw-bold">S/ {{ g.total_monto|floatformat:2 }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Historial ventas restaurante -->
+        <div class="card border-0 shadow-sm p-4">
+            <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                <i data-lucide="list" class="text-secondary" style="width:18px;"></i> Historial de Cuentas Cerradas
+            </h5>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle small">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Mesa</th>
+                            <th>Mozo</th>
+                            <th>Guía</th>
+                            <th>Tipo</th>
+                            <th class="text-end">Total</th>
+                            <th class="text-center">Tarjeta</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for v in ventas_rest %}
+                        <tr>
+                            <td>{{ v.fecha|date:"d/m/Y H:i" }}</td>
+                            <td>{% if v.mesa %}Mesa {{ v.mesa.numero }}{% else %}—{% endif %}</td>
+                            <td>{{ v.usuario.get_full_name|default:v.usuario.username }}</td>
+                            <td>{{ v.encargado_guia|default:"—" }}</td>
+                            <td><span class="badge bg-light text-dark">{{ v.tipo_comprobante }}</span></td>
+                            <td class="text-end fw-bold text-primary">S/ {{ v.total|floatformat:2 }}</td>
+                            <td class="text-center">
+                                {% if v.pago_tarjeta %}
+                                <span class="badge bg-light-warning text-warning"><i data-lucide="credit-card" style="width:11px;"></i> +{{ v.recargo_tarjeta|floatformat:2 }}</span>
+                                {% else %}
+                                <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{% url 'ticket_print' v.id %}" target="_blank" class="btn btn-xs btn-outline-secondary" style="font-size:0.72rem;padding:2px 6px;">
+                                    <i data-lucide="printer" style="width:12px;"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="8" class="text-center text-muted py-3">Sin ventas en el período seleccionado.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
     </div>
 
 </div>

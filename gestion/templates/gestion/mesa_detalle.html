@@ -15,6 +15,20 @@
         </div>
 
         {% if comanda %}
+        <!-- Encargado / Guía -->
+        <div class="card border-0 shadow-sm p-3 mb-3">
+            <form action="{% url 'mesa_guardar_guia' comanda.id %}" method="POST" class="d-flex align-items-center gap-2">
+                {% csrf_token %}
+                <i data-lucide="user-check" class="text-primary flex-shrink-0" style="width:18px;"></i>
+                <label class="text-muted small fw-semibold flex-shrink-0 mb-0">Guía/Encargado:</label>
+                <input type="text" name="encargado_guia" value="{{ comanda.encargado_guia|default:'' }}"
+                    class="form-control form-control-sm" placeholder="Nombre del guía o encargado (opcional)">
+                <button type="submit" class="btn btn-sm btn-outline-primary flex-shrink-0">
+                    <i data-lucide="save" style="width:14px;"></i>
+                </button>
+            </form>
+        </div>
+
         <div class="card border-0 shadow-sm overflow-hidden mb-4">
             <div class="card-header bg-white p-4 border-bottom border-dashed">
                 <div class="d-flex justify-content-between align-items-center">
@@ -34,24 +48,73 @@
                         <thead class="table-light">
                             <tr>
                                 <th class="ps-4">Producto</th>
+                                <th class="text-center">Silla</th>
                                 <th class="text-center">Cant.</th>
                                 <th class="text-end">P. Unit</th>
-                                <th class="text-end pe-4">Subtotal</th>
+                                <th class="text-end">Subtotal</th>
+                                <th class="text-center pe-4">Estado</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for detalle in comanda.detalles.all %}
-                            <tr>
-                                <td class="ps-4 fw-semibold">{{ detalle.producto.nombre }}</td>
+                            <tr {% if detalle.incluido_tour %}class="table-success"{% endif %}>
+                                <td class="ps-4">
+                                    <div class="fw-bold text-dark">{{ detalle.producto.nombre }}</div>
+                                    {% if detalle.incluido_tour %}
+                                    <span class="badge bg-success bg-opacity-10 text-success" style="font-size:0.7rem;">
+                                        <i data-lucide="package-check" style="width:11px;"></i> Incluido en Tour
+                                    </span>
+                                    {% endif %}
+                                    {% if detalle.observaciones %}
+                                    <div class="text-muted" style="font-size:0.73rem;">
+                                        <i data-lucide="message-square" style="width:10px;"></i> {{ detalle.observaciones }}
+                                    </div>
+                                    {% endif %}
+                                    {% if detalle.mozo %}
+                                    <small class="text-muted" style="font-size:0.72rem;">Mozo: {{ detalle.mozo.get_full_name|default:detalle.mozo.username }}</small>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    {% if detalle.silla %}
+                                    <span class="badge bg-light-warning text-warning fw-bold">Silla {{ detalle.silla }}</span>
+                                    {% else %}
+                                    <span class="text-muted small">Gral</span>
+                                    {% endif %}
+                                </td>
                                 <td class="text-center">
                                     <span class="badge bg-light-primary text-primary fs-6">{{ detalle.cantidad }}</span>
                                 </td>
-                                <td class="text-end">S/ {{ detalle.precio_unitario }}</td>
-                                <td class="text-end pe-4 fw-bold">S/ {{ detalle.subtotal }}</td>
+                                <td class="text-end">
+                                    {% if detalle.incluido_tour %}
+                                    <span class="text-muted small text-decoration-line-through">S/ {{ detalle.precio_unitario }}</span>
+                                    {% else %}
+                                    S/ {{ detalle.precio_unitario }}
+                                    {% endif %}
+                                </td>
+                                <td class="text-end fw-bold">
+                                    {% if detalle.incluido_tour %}
+                                    <span class="text-success">S/ 0.00</span>
+                                    {% else %}
+                                    S/ {{ detalle.subtotal }}
+                                    {% endif %}
+                                </td>
+                                <td class="text-center pe-4">
+                                    {% if detalle.estado_comanda %}
+                                    <span class="badge 
+                                        {% if detalle.estado_comanda.estado == 'PENDIENTE' %}bg-light-danger text-danger
+                                        {% elif detalle.estado_comanda.estado == 'ACEPTADO' %}bg-light-info text-info
+                                        {% elif detalle.estado_comanda.estado == 'EN_PREPARACION' %}bg-light-warning text-warning
+                                        {% else %}bg-light-success text-success{% endif %}">
+                                        {{ detalle.estado_comanda.get_estado_display }}
+                                    </span>
+                                    {% else %}
+                                    <span class="text-muted small">-</span>
+                                    {% endif %}
+                                </td>
                             </tr>
                             {% empty %}
                             <tr>
-                                <td colspan="4" class="text-center py-5 text-muted">
+                                <td colspan="6" class="text-center py-5 text-muted">
                                     La mesa está abierta pero aún no hay pedidos.
                                 </td>
                             </tr>
@@ -60,22 +123,53 @@
                     </table>
                 </div>
             </div>
+
+            <!-- Footer: Cerrar cuenta -->
             <div class="card-footer bg-light p-4">
                 <form action="{% url 'mesa_cerrar' comanda.id %}" method="POST" class="row g-2">
                     {% csrf_token %}
-                    <div class="col-md-6">
+                    <div class="col-md-4">
                         <select name="tipo_comprobante" class="form-select">
                             <option value="BOLETA">Boleta de Venta</option>
                             <option value="FACTURA">Factura</option>
                             <option value="TICKET">Ticket simple</option>
                         </select>
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-4 d-flex align-items-center gap-2 ps-3">
+                        <div class="form-check mb-0">
+                            <input type="checkbox" class="form-check-input" name="pago_tarjeta" id="pagoTarjeta">
+                            <label class="form-check-label small fw-semibold" for="pagoTarjeta">
+                                <i data-lucide="credit-card" style="width:14px;"></i> Pago con Tarjeta (+5%)
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
                         <button type="submit" class="btn btn-primary w-100 d-flex align-items-center justify-content-center gap-2">
-                            <i data-lucide="check-circle" style="width: 18px;"></i> Cerrar Cuenta y Cobrar
+                            <i data-lucide="check-circle" style="width: 18px;"></i> Cerrar y Cobrar
                         </button>
                     </div>
                 </form>
+
+                <!-- Botones Imprimir Cuenta -->
+                <div class="mt-3 pt-3 border-top">
+                    <div class="d-flex flex-wrap gap-2 align-items-center">
+                        <span class="text-muted small fw-semibold me-1">
+                            <i data-lucide="printer" style="width:14px;"></i> Imprimir cuenta:
+                        </span>
+                        <a href="{% url 'ticket_print' comanda.id %}" target="_blank"
+                            class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1">
+                            <i data-lucide="receipt" style="width:14px;"></i> Cuenta General
+                        </a>
+                        {% for detalle in comanda.detalles.all %}
+                            {% if detalle.silla %}
+                            <a href="{% url 'ticket_print' comanda.id %}?silla={{ detalle.silla }}" target="_blank"
+                                class="btn btn-sm btn-outline-warning d-flex align-items-center gap-1">
+                                <i data-lucide="armchair" style="width:13px;"></i> Silla {{ detalle.silla }}
+                            </a>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
             </div>
         </div>
         {% else %}
@@ -91,39 +185,87 @@
     <!-- Menú para seleccionar -->
     <div class="col-lg-5">
         <div class="card border-0 shadow-sm p-4 sticky-top" style="top: 100px;">
-            <h5 class="fw-bold mb-4 d-flex align-items-center gap-2">
-                <i data-lucide="utensils-crosseyed" class="text-primary"></i> Menú / Carta
+            <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                <i data-lucide="utensils-crossings" class="text-primary"></i> Menú / Carta
             </h5>
-            
+
+            <!-- Control de sillas totales -->
+            <div class="alert alert-light border d-flex align-items-center gap-3 py-2 px-3 mb-3" id="sillas-control-box">
+                <i data-lucide="armchair" style="width:18px;" class="text-primary flex-shrink-0"></i>
+                <div class="flex-grow-1">
+                    <small class="fw-semibold text-dark d-block" style="font-size:0.78rem;">Sillas en esta mesa</small>
+                    <small class="text-muted" style="font-size:0.72rem;">Ajusta si se juntaron mesas</small>
+                </div>
+                <div class="d-flex align-items-center gap-1">
+                    <button type="button" class="btn btn-sm btn-outline-secondary px-2 py-0" id="btn-sillas-menos" title="Quitar silla">−</button>
+                    <input type="number" id="total-sillas" value="{{ mesa.capacidad }}" min="1" max="99"
+                        class="form-control form-control-sm text-center fw-bold"
+                        style="width:52px; font-size:1rem;"
+                        title="Total de sillas">
+                    <button type="button" class="btn btn-sm btn-outline-primary px-2 py-0" id="btn-sillas-mas" title="Agregar silla">+</button>
+                </div>
+            </div>
+
             <!-- Buscador rápido -->
-            <div class="input-group mb-4">
+            <div class="input-group mb-3">
                 <span class="input-group-text bg-white border-end-0"><i data-lucide="search" style="width: 18px;"></i></span>
                 <input type="text" id="searchMenu" class="form-control border-start-0" placeholder="Buscar plato o bebida...">
             </div>
 
-            <div class="list-group list-group-flush overflow-auto" style="max-height: 60vh;">
+            <div class="list-group list-group-flush overflow-auto" style="max-height: 55vh;">
                 {% for prod in productos %}
-                <div class="list-group-item px-0 border-dashed d-flex align-items-center justify-content-between gap-3 menu-item">
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="bg-light rounded p-2">
-                            <i data-lucide="utensils" class="text-primary" style="width: 20px;"></i>
+                <div class="list-group-item px-0 border-dashed menu-item">
+                    <div class="d-flex align-items-start gap-2 flex-wrap">
+                        <div class="bg-light rounded p-2 flex-shrink-0 mt-1">
+                            <i data-lucide="{% if prod.subcategoria in 'BEBIDA,LICOR' %}glass-water{% else %}utensils{% endif %}" class="text-primary" style="width: 20px;"></i>
                         </div>
-                        <div>
-                            <h6 class="mb-0 fw-bold item-name">{{ prod.nombre }}</h6>
+                        <div class="flex-grow-1 min-w-0">
+                            <h6 class="mb-0 fw-bold item-name text-truncate">{{ prod.nombre }}</h6>
                             <small class="text-primary fw-bold">S/ {{ prod.precio_venta }}</small>
+                            <span class="badge bg-light text-dark ms-1 small" style="font-size: 0.65rem;">{{ prod.get_subcategoria_display }}</span>
                         </div>
+
+                        {% if comanda %}
+                        <form action="{% url 'mesa_agregar_item' comanda.id %}" method="POST" class="w-100 mt-2">
+                            {% csrf_token %}
+                            <input type="hidden" name="producto_id" value="{{ prod.id }}">
+                            <div class="row g-1 align-items-end">
+                                <!-- Silla -->
+                                <div class="col-3">
+                                    <label class="form-label mb-0" style="font-size:0.68rem;color:#888;">Silla</label>
+                                    <select name="silla" class="form-select form-select-sm silla-select" style="font-size:0.78rem;">
+                                        <option value="">🍽 Gral</option>
+                                        {% for s in sillas_range %}
+                                        <option value="{{ s }}">🪑 {{ s }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <!-- Cantidad -->
+                                <div class="col-2">
+                                    <label class="form-label mb-0" style="font-size:0.68rem;color:#888;">Cant.</label>
+                                    <input type="number" name="cantidad" value="1" min="1"
+                                        class="form-control form-control-sm text-center" style="font-size:0.82rem;">
+                                </div>
+                                <!-- Observaciones -->
+                                <div class="col-5">
+                                    <label class="form-label mb-0" style="font-size:0.68rem;color:#888;">Observaciones</label>
+                                    <input type="text" name="observaciones" placeholder="ej: poco picante..."
+                                        class="form-control form-control-sm" style="font-size:0.78rem;">
+                                </div>
+                                <!-- Botón + Tour -->
+                                <div class="col-2 d-flex flex-column gap-1">
+                                    <div class="form-check mb-0" title="Incluido en tour (sin costo)">
+                                        <input type="checkbox" class="form-check-input" name="incluido_tour" id="tour_{{ prod.id }}" style="font-size:0.7rem;">
+                                        <label class="form-check-label" for="tour_{{ prod.id }}" style="font-size:0.65rem;">Tour</label>
+                                    </div>
+                                    <button type="submit" class="btn btn-sm btn-primary rounded d-flex align-items-center justify-content-center gap-1" style="font-size:0.75rem;">
+                                        <i data-lucide="plus" style="width: 12px;"></i> Add
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                        {% endif %}
                     </div>
-                    
-                    {% if comanda %}
-                    <form action="{% url 'mesa_agregar_item' comanda.id %}" method="POST" class="d-flex gap-1 align-items-center">
-                        {% csrf_token %}
-                        <input type="hidden" name="producto_id" value="{{ prod.id }}">
-                        <input type="number" name="cantidad" value="1" min="1" class="form-control form-control-sm" style="width: 50px;">
-                        <button type="submit" class="btn btn-sm btn-primary rounded-circle" title="Agregar">
-                            <i data-lucide="plus" style="width: 14px;"></i>
-                        </button>
-                    </form>
-                    {% endif %}
                 </div>
                 {% empty %}
                 <p class="text-muted text-center py-3 small">No hay productos disponibles en el menú.</p>
@@ -136,17 +278,61 @@
 
 {% block extra_js %}
 <script>
-    // Buscador en tiempo real de productos
-    document.getElementById('searchMenu').addEventListener('keyup', function() {
-        let value = this.value.toLowerCase();
-        document.querySelectorAll('.menu-item').forEach(function(item) {
-            let name = item.querySelector('.item-name').textContent.toLowerCase();
-            if (name.includes(value)) {
-                item.style.display = 'flex';
-            } else {
-                item.style.display = 'none';
+(function () {
+    const STORAGE_KEY = 'mesa_sillas_{{ mesa.id }}';
+    const defaultCap  = {{ mesa.capacidad }};
+
+    const totalInput  = document.getElementById('total-sillas');
+    const btnMas      = document.getElementById('btn-sillas-mas');
+    const btnMenos    = document.getElementById('btn-sillas-menos');
+
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+        totalInput.value = parseInt(saved, 10);
+    }
+
+    function rebuiltSelects() {
+        const total = Math.max(1, parseInt(totalInput.value, 10) || defaultCap);
+        localStorage.setItem(STORAGE_KEY, total);
+
+        document.querySelectorAll('.silla-select').forEach(function (sel) {
+            const current = sel.value;
+            sel.innerHTML = '<option value="">🍽 Gral</option>';
+            for (let i = 1; i <= total; i++) {
+                const opt = document.createElement('option');
+                opt.value = i;
+                opt.textContent = '🪑 Silla ' + i;
+                if (String(i) === current) opt.selected = true;
+                sel.appendChild(opt);
             }
         });
+
+        totalInput.style.color = total > defaultCap ? '#0d6efd' : '';
+    }
+
+    totalInput.addEventListener('input', rebuiltSelects);
+    totalInput.addEventListener('change', rebuiltSelects);
+
+    btnMas.addEventListener('click', function () {
+        totalInput.value = Math.min(99, parseInt(totalInput.value, 10) + 1);
+        rebuiltSelects();
     });
+
+    btnMenos.addEventListener('click', function () {
+        totalInput.value = Math.max(1, parseInt(totalInput.value, 10) - 1);
+        rebuiltSelects();
+    });
+
+    document.getElementById('searchMenu').addEventListener('keyup', function () {
+        const val = this.value.toLowerCase();
+        document.querySelectorAll('.menu-item').forEach(function (item) {
+            const name = item.querySelector('.item-name').textContent.toLowerCase();
+            item.style.display = name.includes(val) ? '' : 'none';
+        });
+        lucide.createIcons();
+    });
+
+    rebuiltSelects();
+})();
 </script>
 {% endblock %}

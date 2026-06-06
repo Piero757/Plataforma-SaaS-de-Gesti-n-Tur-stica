@@ -10,7 +10,7 @@ from .models import (
     Venta, Producto, Inventario, RegistroServicio, Cliente, Proveedor, 
     Compra, FacturaElectronica, DetalleVenta, ConfiguracionEmpresa,
     Habitacion, Mesa, Reserva, PedidoHabitacion, DetalleCompra, CuotaCompra,
-    CategoriaPersonalizada
+    CategoriaPersonalizada, PerfilUsuario, EstadoComanda
 )
 from django.contrib.auth import login
 from .forms import (
@@ -33,6 +33,21 @@ import json
 
 @login_required
 def dashboard_view(request):
+    # Redirección automática según el rol del usuario
+    try:
+        rol = request.user.perfil.rol
+    except PerfilUsuario.DoesNotExist:
+        rol = 'ADMIN'
+
+    if rol == 'COCINA':
+        return redirect('cocina')
+    elif rol == 'BARRA':
+        return redirect('barra')
+    elif rol == 'LIMPIEZA':
+        return redirect('limpieza')
+    elif rol in ['MOZO', 'JEFE_MOZO']:
+        return redirect('restaurante')
+
     today = timezone.now().date()
     month_start = today.replace(day=1)
 
@@ -119,7 +134,6 @@ def usuario_update(request, pk):
     usuario = get_object_or_404(User, pk=pk)
     if request.method == 'POST':
         form = UsuarioCreateForm(request.POST, instance=usuario)
-        # Note: Password handling in update needs care, for simplicity we reuse the form or could filter
         if form.is_valid():
             form.save()
             messages.success(request, "Usuario actualizado correctamente.")
@@ -582,8 +596,8 @@ def venta_pdf(request, pk):
 def importar_ventas(request):
     if request.method == 'POST' and request.FILES.get('archivo'):
         archivo = request.FILES['archivo']
-        if not (archivo.name.endswith('.xlsx') or archivo.name.endswith('.csv')):
-            messages.error(request, "Solo se admiten archivos .xlsx o .csv")
+        if not (archivo.name.endswith('.xlsx') or archivo.name.endswith('.xls') or archivo.name.endswith('.csv')):
+            messages.error(request, "Solo se admiten archivos .xlsx, .xls o .csv")
             return redirect('ventas_list')
 
         try:
@@ -593,6 +607,15 @@ def importar_ventas(request):
                 ws = wb.active
                 headers = [str(cell.value).lower().strip() if cell.value else "" for cell in ws[1]]
                 rows = ws.iter_rows(min_row=2, values_only=True)
+            elif archivo.name.endswith('.xls'):
+                import xlrd
+                wb = xlrd.open_workbook(file_contents=archivo.read())
+                sheet = wb.sheet_by_index(0)
+                headers = [str(sheet.cell_value(0, col)).lower().strip() for col in range(sheet.ncols)]
+                rows = []
+                for row_idx in range(1, sheet.nrows):
+                    row_vals = [sheet.cell_value(row_idx, col_idx) for col_idx in range(sheet.ncols)]
+                    rows.append(row_vals)
             else:
                 decoded_file = archivo.read().decode('utf-8').splitlines()
                 reader = csv.reader(decoded_file)
@@ -610,12 +633,12 @@ def importar_ventas(request):
 
             for i, h in enumerate(headers):
                 if 'fecha' in h or 'emision' in h: idx_fecha = i
-                elif 'cliente' in h or 'nombre' in h or 'razon' in h: idx_cliente = i
-                elif 'ruc' in h or 'dni' in h or 'documento' in h: idx_doc = i
-                elif 'tipo' in h or 'comprobante' in h: idx_tipo = i
+                elif 'cliente' in h or 'nombre' in h or 'razon' in h or 'razonsocia' in h: idx_cliente = i
+                elif 'ruc' in h or 'dni' in h or 'documento' in h or 'numerodo' in h: idx_doc = i
+                elif 'tipo' in h or 'comprobante' in h or 'tipodocu' in h: idx_tipo = i
                 elif 'serie' in h: idx_serie = i
-                elif 'numero' in h or 'correlativo' in h: idx_numero = i
-                elif 'total' in h or 'monto' in h or 'importe' in h: idx_total = i
+                elif 'numero' in h or 'correlativo' in h or 'nro_efact' in h: idx_numero = i
+                elif 'total' in h or 'monto' in h or 'importe' in h or 'precioven' in h: idx_total = i
 
             if idx_total == -1 or (idx_cliente == -1 and idx_doc == -1):
                 messages.error(request, "No se pudieron identificar las columnas necesarias en el archivo.")
@@ -628,10 +651,19 @@ def importar_ventas(request):
                     fecha_val = row[idx_fecha] if idx_fecha != -1 else None
                     if isinstance(fecha_val, datetime):
                         fecha = fecha_val
+                    elif isinstance(fecha_val, (int, float)):
+                        try:
+                            import xlrd
+                            date_tuple = xlrd.xldate_as_tuple(fecha_val, wb.datemode if 'wb' in locals() and hasattr(wb, 'datemode') else 0)
+                            fecha = datetime(*date_tuple)
+                        except:
+                            fecha = timezone.now()
                     elif isinstance(fecha_val, str):
-                        for fmt in ('%Y-%m-%d', '%d/%m/%Y', '%d-%m-%Y'):
+                        for fmt in ('%Y-%m-%d', '%d/%m/%Y', '%d-%m-%Y', '%Y-%m-%d %H:%M:%S', '%d/%m/%Y %H:%M'):
                             try:
-                                fecha = datetime.strptime(fecha_val, fmt)
+                                # handle double backslashes or other characters
+                                fecha_val_clean = fecha_val.split(' ')[0] if ' ' in fecha_val else fecha_val
+                                fecha = datetime.strptime(fecha_val_clean, fmt)
                                 break
                             except: continue
                         else: fecha = timezone.now()
@@ -641,14 +673,29 @@ def importar_ventas(request):
                     nombre_cliente = str(row[idx_cliente]) if idx_cliente != -1 else "Cliente Importado"
                     doc_cliente = str(row[idx_doc]) if idx_doc != -1 else "00000000"
                     
+                    # Limpiar notación científica en DNI/RUC
+                    if 'e+' in doc_cliente.lower() or 'e-' in doc_cliente.lower():
+                        try:
+                            doc_cliente = str(int(float(doc_cliente)))
+                        except:
+                            pass
+                    
                     tipo_raw = str(row[idx_tipo]).upper() if idx_tipo != -1 else "BOLETA"
                     if 'FACTURA' in tipo_raw: tipo_comp = 'FACTURA'
                     elif 'NOTA' in tipo_raw and 'CREDITO' in tipo_raw: tipo_comp = 'NOTA_CREDITO'
                     else: tipo_comp = 'BOLETA'
                     
                     serie = str(row[idx_serie]) if idx_serie != -1 else "E001"
-                    numero_val = row[idx_numero] if idx_numero != -1 else 1
-                    try: numero = int(numero_val)
+                    numero_val = str(row[idx_numero]) if idx_numero != -1 else "1"
+                    
+                    # Limpiar número de factura si contiene serie
+                    if idx_serie != -1:
+                        serie_str = str(row[idx_serie]).strip()
+                        if numero_val.startswith(serie_str):
+                            numero_val = numero_val[len(serie_str):]
+                    
+                    nro_digits = ''.join(c for c in numero_val if c.isdigit())
+                    try: numero = int(nro_digits)
                     except: numero = 1
 
                     cliente, _ = Cliente.objects.get_or_create(
@@ -945,6 +992,52 @@ def reportes_view(request):
     inventario_report = Inventario.objects.select_related('producto').filter(producto__activo=True).order_by('producto__subcategoria', 'producto__nombre')
     total_stock_items = inventario_report.aggregate(Sum('stock_actual'))['stock_actual__sum'] or 0
     total_valoracion = sum(float(item.stock_actual) * float(item.producto.precio_venta) for item in inventario_report)
+
+    # 5. Reporte Restaurante
+    ventas_rest = Venta.objects.filter(modulo='RESTAURANTE', es_comanda=False)
+    if fecha_inicio:
+        ventas_rest = ventas_rest.filter(fecha__date__gte=fecha_inicio)
+    if fecha_fin:
+        ventas_rest = ventas_rest.filter(fecha__date__lte=fecha_fin)
+    total_rest = ventas_rest.aggregate(Sum('total'))['total__sum'] or 0
+    total_rest_tarjeta = ventas_rest.filter(pago_tarjeta=True).aggregate(Sum('recargo_tarjeta'))['recargo_tarjeta__sum'] or 0
+    # Platos más vendidos
+    platos_mas_vendidos = DetalleVenta.objects.filter(
+        venta__in=ventas_rest,
+        producto__categoria='RESTAURANTE'
+    ).values('producto__nombre', 'producto__subcategoria').annotate(
+        total_vendido=Sum('cantidad'),
+        total_ingresos=Sum('subtotal')
+    ).order_by('-total_vendido')[:10]
+    # Ventas por mozo
+    ventas_por_mozo = DetalleVenta.objects.filter(
+        venta__in=ventas_rest
+    ).exclude(mozo=None).values(
+        'mozo__username', 'mozo__first_name', 'mozo__last_name'
+    ).annotate(
+        total_items=Sum('cantidad'),
+        total_ingresos=Sum('subtotal')
+    ).order_by('-total_ingresos')
+    # Comisiones
+    comisiones_por_mozo = DetalleVenta.objects.filter(
+        venta__in=ventas_rest
+    ).exclude(mozo=None).select_related('mozo', 'producto')
+    comision_dict = {}
+    for d in comisiones_por_mozo:
+        mozo_key = d.mozo.username
+        if mozo_key not in comision_dict:
+            comision_dict[mozo_key] = {'nombre': d.mozo.get_full_name() or d.mozo.username, 'total_comision': 0}
+        comision_dict[mozo_key]['total_comision'] += float(d.producto.comision) * d.cantidad
+    comisiones_list = sorted(comision_dict.values(), key=lambda x: x['total_comision'], reverse=True)
+    # Ventas incluidas en tour
+    items_incluidos_tour = DetalleVenta.objects.filter(
+        venta__in=ventas_rest, incluido_tour=True
+    ).count()
+    # Guías con más comanda
+    guias_report = ventas_rest.exclude(encargado_guia=None).exclude(encargado_guia='').values('encargado_guia').annotate(
+        total_ventas=Count('id'),
+        total_monto=Sum('total')
+    ).order_by('-total_monto')[:10]
     
     context = {
         # Ventas
@@ -969,6 +1062,16 @@ def reportes_view(request):
         'inventario_report': inventario_report,
         'total_stock_items': total_stock_items,
         'total_valoracion': total_valoracion,
+
+        # Restaurante
+        'ventas_rest': ventas_rest.order_by('-fecha')[:100],
+        'total_rest': total_rest,
+        'total_rest_tarjeta': total_rest_tarjeta,
+        'platos_mas_vendidos': platos_mas_vendidos,
+        'ventas_por_mozo': ventas_por_mozo,
+        'comisiones_list': comisiones_list,
+        'items_incluidos_tour': items_incluidos_tour,
+        'guias_report': guias_report,
         
         # Filtros
         'usuarios': User.objects.all(),
@@ -978,6 +1081,59 @@ def reportes_view(request):
         'periodo_seleccionado': periodo,
     }
     return render(request, 'gestion/reportes.html', context)
+
+
+def _insertar_cabecera_y_logo_excel(ws, titulo, num_columnas=8):
+    from openpyxl.drawing.image import Image as OpenpyxlImage
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from .models import ConfiguracionEmpresa
+    import os
+    
+    # Insertar 4 filas en blanco al principio
+    ws.insert_rows(1, 4)
+    
+    # Cargar config
+    config = ConfiguracionEmpresa.objects.first()
+    
+    # 1. Agregar logo en A1 si existe
+    if config and config.logo and os.path.exists(config.logo.path):
+        try:
+            img = OpenpyxlImage(config.logo.path)
+            # Redimensionar logo a un tamaño moderado para Excel
+            img.width = 60
+            img.height = 60
+            ws.add_image(img, 'A1')
+        except Exception:
+            pass
+            
+    # 2. Datos de la empresa
+    company_font = Font(name='Calibri', size=11, bold=True)
+    info_font = Font(name='Calibri', size=9, color='555555')
+    if config:
+        ws['B1'] = config.nombre_comercial or config.razon_social or "TURISMO ERP"
+        ws['B1'].font = company_font
+        ws['B2'] = f"RUC: {config.ruc or '20123456789'}"
+        ws['B2'].font = info_font
+        ws['B3'] = f"Dirección: {config.direccion or ''}"
+        ws['B3'].font = info_font
+    else:
+        ws['B1'] = "TURISMO ERP"
+        ws['B1'].font = company_font
+        ws['B2'] = "RUC: 20123456789"
+        ws['B2'].font = info_font
+        
+    # 3. Título del Reporte en la fila 4
+    col_letra_fin = chr(64 + max(2, min(num_columnas, 26)))
+    ws.merge_cells(f"A4:{col_letra_fin}4")
+    ws['A4'] = titulo.upper()
+    ws['A4'].font = Font(name='Calibri', size=12, bold=True, color='FFFFFF')
+    ws['A4'].fill = PatternFill(start_color='1F4E78', end_color='1F4E78', fill_type='solid')
+    ws['A4'].alignment = Alignment(horizontal='center', vertical='center')
+    
+    ws.row_dimensions[1].height = 20
+    ws.row_dimensions[2].height = 15
+    ws.row_dimensions[3].height = 15
+    ws.row_dimensions[4].height = 22
 
 
 @login_required
@@ -1209,6 +1365,7 @@ def exportar_ventas_generales_excel(request):
                 max_len = len(val_str)
         ws.column_dimensions[col_letter].width = max(max_len + 3, 12)
         
+    _insertar_cabecera_y_logo_excel(ws, "Reporte General de Ventas (Hotel y Restaurante)", 9)
     wb.save(response)
     return response
 
@@ -1235,6 +1392,8 @@ def exportar_ventas_generales_pdf(request):
     total_restaurante = restaurante_ventas.aggregate(Sum('total'))['total__sum'] or 0
     total_general = total_hotel + total_restaurante
     
+    empresa_config = ConfiguracionEmpresa.objects.first()
+    
     data = {
         'fecha': datetime.now(),
         'fecha_inicio': fecha_inicio,
@@ -1243,7 +1402,8 @@ def exportar_ventas_generales_pdf(request):
         'restaurante_ventas': restaurante_ventas,
         'total_hotel': total_hotel,
         'total_restaurante': total_restaurante,
-        'total_general': total_general
+        'total_general': total_general,
+        'empresa_config': empresa_config,
     }
     
     pdf = render_to_pdf('gestion/reporte_ventas_generales_pdf.html', data)
@@ -1287,6 +1447,16 @@ def exportar_compras_excel(request):
             float(c.total)
         ])
     
+    for col in ws.columns:
+        max_len = 0
+        col_letter = col[0].column_letter
+        for cell in col:
+            val_str = str(cell.value or '')
+            if len(val_str) > max_len:
+                max_len = len(val_str)
+        ws.column_dimensions[col_letter].width = max(max_len + 3, 12)
+
+    _insertar_cabecera_y_logo_excel(ws, "Reporte de Compras Realizadas", 9)
     wb.save(response)
     return response
 
@@ -1324,6 +1494,16 @@ def exportar_usuarios_excel(request):
                 float(tot_val / cnt_val) if cnt_val > 0 else 0.0
             ])
             
+    for col in ws.columns:
+        max_len = 0
+        col_letter = col[0].column_letter
+        for cell in col:
+            val_str = str(cell.value or '')
+            if len(val_str) > max_len:
+                max_len = len(val_str)
+        ws.column_dimensions[col_letter].width = max(max_len + 3, 12)
+
+    _insertar_cabecera_y_logo_excel(ws, "Reporte de Ventas por Usuario", 6)
     wb.save(response)
     return response
 
@@ -1358,6 +1538,16 @@ def exportar_inventario_excel(request):
             val
         ])
         
+    for col in ws.columns:
+        max_len = 0
+        col_letter = col[0].column_letter
+        for cell in col:
+            val_str = str(cell.value or '')
+            if len(val_str) > max_len:
+                max_len = len(val_str)
+        ws.column_dimensions[col_letter].width = max(max_len + 3, 12)
+
+    _insertar_cabecera_y_logo_excel(ws, "Reporte de Inventario Actual", 11)
     wb.save(response)
     return response
 
@@ -1450,7 +1640,57 @@ def configuracion_empresa(request):
 @login_required
 def habitaciones_list(request):
     habitaciones = Habitacion.objects.filter(activo=True).order_by('numero')
-    return render(request, 'gestion/habitaciones_list.html', {'habitaciones': habitaciones})
+
+    # Filtros
+    filtro_tipo = request.GET.get('tipo', '')
+    filtro_estado = request.GET.get('estado', '')
+    fecha_desde = request.GET.get('fecha_desde', '')
+    fecha_hasta = request.GET.get('fecha_hasta', '')
+
+    if filtro_tipo:
+        habitaciones = habitaciones.filter(tipo=filtro_tipo)
+    if filtro_estado:
+        habitaciones = habitaciones.filter(estado=filtro_estado)
+
+    # Filtro de disponibilidad por rango de fechas
+    if fecha_desde and fecha_hasta:
+        try:
+            from datetime import datetime
+            d_desde = datetime.strptime(fecha_desde, '%Y-%m-%d')
+            d_hasta = datetime.strptime(fecha_hasta, '%Y-%m-%d')
+            # Habitaciones ocupadas en ese rango
+            hab_ocupadas_ids = Reserva.objects.filter(
+                activo=True,
+                estado='CHECKIN',
+                fecha_ingreso__lt=d_hasta,
+                fecha_salida__gt=d_desde
+            ).values_list('habitacion_id', flat=True)
+            habitaciones = habitaciones.exclude(id__in=hab_ocupadas_ids)
+        except ValueError:
+            pass
+
+    # Obtener la reserva activa para cada habitación ocupada o reservada
+    for hab in habitaciones:
+        if hab.estado == 'OCUPADA':
+            hab.reserva_activa = Reserva.objects.filter(
+                habitacion=hab, estado='CHECKIN', activo=True
+            ).last()
+        elif hab.estado == 'RESERVADA':
+            hab.reserva_activa = Reserva.objects.filter(
+                habitacion=hab, estado='PENDIENTE', activo=True
+            ).last()
+
+    context = {
+        'habitaciones': habitaciones,
+        'filtro_tipo': filtro_tipo,
+        'filtro_estado': filtro_estado,
+        'fecha_desde': fecha_desde,
+        'fecha_hasta': fecha_hasta,
+        'tipos_habitacion': Habitacion.TIPO_CHOICES,
+        'estados_habitacion': Habitacion.ESTADO_CHOICES,
+        'personales_limpieza': User.objects.filter(perfil__rol='LIMPIEZA'),
+    }
+    return render(request, 'gestion/habitaciones_list.html', context)
 
 @login_required
 def habitaciones_historial(request):
@@ -1505,16 +1745,56 @@ def habitacion_restore(request, pk):
 
 @login_required
 def reserva_list(request):
-    reservas = Reserva.objects.filter(activo=True).order_by('-fecha_creacion')
-    return render(request, 'gestion/reservas_list.html', {'reservas': reservas})
+    from django.db.models import Q
+    reservas = Reserva.objects.filter(activo=True)
+    
+    # Filtro de búsqueda de texto
+    query = request.GET.get('q', '').strip()
+    if query:
+        reservas = reservas.filter(
+            Q(cliente__nombre_razon_social__icontains=query) |
+            Q(habitacion__numero__icontains=query) |
+            Q(placa_vehiculo__icontains=query)
+        )
+        
+    # Filtro de estado
+    estado_filtro = request.GET.get('estado', '').strip()
+    if estado_filtro:
+        reservas = reservas.filter(estado=estado_filtro)
+        
+    reservas = reservas.order_by('-fecha_creacion')
+    return render(request, 'gestion/reservas_list.html', {
+        'reservas': reservas,
+        'query': query,
+        'estado_filtro': estado_filtro
+    })
 
 @login_required
 def reservas_historial(request):
-    reservas = Reserva.objects.filter(activo=False).order_by('-fecha_creacion')
+    from django.db.models import Q
+    reservas = Reserva.objects.filter(activo=False)
+    
+    # Filtro de búsqueda de texto
+    query = request.GET.get('q', '').strip()
+    if query:
+        reservas = reservas.filter(
+            Q(cliente__nombre_razon_social__icontains=query) |
+            Q(habitacion__numero__icontains=query) |
+            Q(placa_vehiculo__icontains=query)
+        )
+        
+    # Filtro de estado
+    estado_filtro = request.GET.get('estado', '').strip()
+    if estado_filtro:
+        reservas = reservas.filter(estado=estado_filtro)
+        
+    reservas = reservas.order_by('-fecha_creacion')
     return render(request, 'gestion/reservas_list.html', {
         'reservas': reservas,
         'es_historial': True,
-        'titulo': 'Historial de Recepción (Eliminados)'
+        'titulo': 'Historial de Recepción (Eliminados)',
+        'query': query,
+        'estado_filtro': estado_filtro
     })
 
 @login_required
@@ -1524,20 +1804,44 @@ def reserva_create(request):
         form = ReservaForm(request.POST)
         if form.is_valid():
             reserva = form.save(commit=False)
-            reserva.estado = 'CHECKIN'
-            reserva.save()
-            # Actualizar estado de habitación
-            reserva.habitacion.estado = 'OCUPADA'
-            reserva.habitacion.save()
-            messages.success(request, "Check-in realizado correctamente.")
-            return redirect('reserva_list')
+            tipo_accion = request.POST.get('tipo_accion', 'CHECKIN')  # 'RESERVAR' o 'CHECKIN'
+            
+            # Verificar si se ingresó un nombre rápido de cliente
+            nombre_rapido = request.POST.get('nombre_cliente_rapido', '').strip()
+            if not form.cleaned_data.get('cliente') and not nombre_rapido:
+                form.add_error('cliente', 'Debe seleccionar un cliente registrado o ingresar un nombre de cliente rápido.')
+            else:
+                if nombre_rapido and not form.cleaned_data.get('cliente'):
+                    import uuid
+                    temp_doc = f"TEMP-{uuid.uuid4().hex[:8].upper()}"
+                    cliente = Cliente.objects.create(
+                        tipo_documento='DNI',
+                        numero_documento=temp_doc,
+                        nombre_razon_social=nombre_rapido,
+                        modulo='HOTEL',
+                        activo=True
+                    )
+                    reserva.cliente = cliente
+
+                if tipo_accion == 'RESERVAR':
+                    reserva.estado = 'PENDIENTE'
+                    reserva.save()
+                    reserva.habitacion.estado = 'RESERVADA'
+                    reserva.habitacion.save()
+                    messages.success(request, f"Reserva registrada para Hab. {reserva.habitacion.numero}. Pendiente de Check-in.")
+                else:
+                    reserva.estado = 'CHECKIN'
+                    reserva.save()
+                    reserva.habitacion.estado = 'OCUPADA'
+                    reserva.habitacion.save()
+                    messages.success(request, "Check-in realizado correctamente.")
+                return redirect('reserva_list')
     else:
         initial_data = {}
         if habitacion_id:
             initial_data['habitacion'] = habitacion_id
         form = ReservaForm(initial=initial_data)
     
-    # Preparamos los precios de las habitaciones para el JS
     habitaciones_precios = {h.id: float(h.precio_noche) for h in Habitacion.objects.all()}
     
     return render(request, 'gestion/reserva_form.html', {
@@ -1698,6 +2002,20 @@ def reserva_restore(request, pk):
     return redirect('reserva_list')
 
 @login_required
+def reserva_hacer_checkin(request, pk):
+    """Convierte una reserva PENDIENTE en CHECKIN efectivo (huésped llega)."""
+    reserva = get_object_or_404(Reserva, pk=pk, activo=True)
+    if reserva.estado == 'PENDIENTE':
+        reserva.estado = 'CHECKIN'
+        reserva.save()
+        reserva.habitacion.estado = 'OCUPADA'
+        reserva.habitacion.save()
+        messages.success(request, f"Check-in realizado para {reserva.cliente.nombre_razon_social} – Hab. {reserva.habitacion.numero}.")
+    else:
+        messages.warning(request, "Esta reserva no está en estado Pendiente.")
+    return redirect('reserva_list')
+
+@login_required
 def mesa_abrir(request, mesa_id):
     mesa = get_object_or_404(Mesa, id=mesa_id)
     if mesa.estado in ['DISPONIBLE', 'RESERVADA']:
@@ -1732,6 +2050,7 @@ def mesa_detalle(request, mesa_id):
         'mesa': mesa,
         'comanda': comanda,
         'productos': productos,
+        'sillas_range': range(1, mesa.capacidad + 1),
         'titulo': f'Mesa {mesa.numero}'
     })
 
@@ -1741,24 +2060,57 @@ def mesa_agregar_item(request, venta_id):
     if request.method == 'POST':
         producto_id = request.POST.get('producto_id')
         cantidad = int(request.POST.get('cantidad', 1))
+        silla = request.POST.get('silla') or None
         producto = get_object_or_404(Producto, id=producto_id)
-        
-        detalle, created = DetalleVenta.objects.get_or_create(
-            venta=venta,
-            producto=producto,
-            defaults={
-                'cantidad': 0,
-                'precio_unitario': producto.precio_venta,
-                'subtotal': 0
-            }
-        )
+        observaciones = request.POST.get('observaciones', '').strip() or None
+        incluido_tour = request.POST.get('incluido_tour') in ['on', 'true']
+
+        # Cada combinación producto+silla+observaciones+incluido_tour es un ítem único
+        if silla:
+            detalle, created = DetalleVenta.objects.get_or_create(
+                venta=venta,
+                producto=producto,
+                silla=silla,
+                observaciones=observaciones,
+                incluido_tour=incluido_tour,
+                defaults={
+                    'cantidad': 0,
+                    'precio_unitario': producto.precio_venta,
+                    'subtotal': 0,
+                    'mozo': request.user,
+                }
+            )
+        else:
+            detalle, created = DetalleVenta.objects.get_or_create(
+                venta=venta,
+                producto=producto,
+                silla=None,
+                observaciones=observaciones,
+                incluido_tour=incluido_tour,
+                defaults={
+                    'cantidad': 0,
+                    'precio_unitario': producto.precio_venta,
+                    'subtotal': 0,
+                    'mozo': request.user,
+                }
+            )
+
         detalle.cantidad += cantidad
-        detalle.subtotal = detalle.cantidad * detalle.precio_unitario
+        if incluido_tour:
+            detalle.subtotal = Decimal('0.00')
+        else:
+            detalle.subtotal = detalle.cantidad * detalle.precio_unitario
+            
+        if not detalle.mozo:
+            detalle.mozo = request.user
         detalle.save()
-        
+
+        # Crear EstadoComanda si no existe
+        EstadoComanda.objects.get_or_create(detalle=detalle)
+
         venta.total = sum(d.subtotal for d in venta.detalles.all())
         venta.save()
-        
+
     return redirect('mesa_detalle', mesa_id=venta.mesa.id)
 
 @login_required
@@ -1766,8 +2118,21 @@ def mesa_cerrar(request, venta_id):
     venta = get_object_or_404(Venta, id=venta_id)
     if request.method == 'POST':
         tipo = request.POST.get('tipo_comprobante', 'BOLETA')
+        pago_tarjeta_checked = request.POST.get('pago_tarjeta') in ['on', 'true']
+        
         venta.es_comanda = False
         venta.tipo_comprobante = tipo
+        venta.pago_tarjeta = pago_tarjeta_checked
+        
+        total_productos = sum(d.subtotal for d in venta.detalles.all())
+        if pago_tarjeta_checked:
+            recargo = total_productos * Decimal('0.05')
+            venta.recargo_tarjeta = recargo
+            venta.total = total_productos + recargo
+        else:
+            venta.recargo_tarjeta = Decimal('0.00')
+            venta.total = total_productos
+            
         venta.save()
         
         if venta.mesa:
@@ -1833,7 +2198,239 @@ def carta_lista(request):
 def ticket_print(request, pk):
     venta = get_object_or_404(Venta, pk=pk)
     config = ConfiguracionEmpresa.objects.first()
+    silla = request.GET.get('silla')  # Filtro opcional por silla
+    detalles = venta.detalles.all()
+    if silla:
+        detalles = detalles.filter(silla=silla)
+    sillas_usadas = venta.detalles.values_list('silla', flat=True).distinct().order_by('silla')
     return render(request, 'gestion/ticket_print.html', {
         'venta': venta,
-        'config': config
+        'config': config,
+        'detalles_filtrados': detalles,
+        'silla_filtro': silla,
+        'sillas_usadas': sillas_usadas,
     })
+
+
+@login_required
+def mesa_guardar_guia(request, venta_id):
+    """Guarda el nombre del guía/encargado de una comanda."""
+    if request.method == 'POST':
+        venta = get_object_or_404(Venta, id=venta_id)
+        venta.encargado_guia = request.POST.get('encargado_guia', '').strip() or None
+        venta.save()
+        messages.success(request, "Guía/encargado guardado.")
+    return redirect('mesa_detalle', mesa_id=venta.mesa.id)
+
+
+@login_required
+def jefe_mozos_panel(request):
+    """Panel del Jefe de Mozos: ve todas las mesas, comandas activas y puede gestionar pedidos."""
+    mesas = Mesa.objects.all().order_by('numero')
+    comandas_activas = Venta.objects.filter(es_comanda=True).select_related('mesa', 'usuario')
+    
+    # Estadísticas rápidas
+    total_mesas = mesas.count()
+    mesas_ocupadas = mesas.filter(estado='OCUPADA').count()
+    total_items_pendientes = EstadoComanda.objects.filter(
+        estado='PENDIENTE',
+        detalle__venta__es_comanda=True
+    ).count()
+    
+    # Detalles pendientes agrupados por mesa
+    detalles_pendientes = DetalleVenta.objects.filter(
+        venta__es_comanda=True,
+        estado_comanda__estado='PENDIENTE'
+    ).select_related('venta', 'venta__mesa', 'producto', 'mozo', 'estado_comanda').order_by('venta__mesa__numero', 'id')
+    
+    return render(request, 'gestion/jefe_mozos_panel.html', {
+        'mesas': mesas,
+        'comandas_activas': comandas_activas,
+        'total_mesas': total_mesas,
+        'mesas_ocupadas': mesas_ocupadas,
+        'total_items_pendientes': total_items_pendientes,
+        'detalles_pendientes': detalles_pendientes,
+        'titulo': 'Panel Jefe de Mozos',
+    })
+
+# ============================================================
+# VISTAS DE ROLES ESPECIALES
+# ============================================================
+
+SUBCATEGORIAS_BEBIDAS = ['BEBIDA', 'LICOR']
+SUBCATEGORIAS_COCINA = ['ENTRADA', 'PLATO_FONDO', 'POSTRE', 'OTRO']
+
+@login_required
+def cocina_view(request):
+    """Panel exclusivo para el usuario de Cocina. Solo ve platos (no bebidas)."""
+    # Pedidos activos: comandas abiertas con ítems de cocina (todo lo de restaurante excepto bebidas)
+    detalles_cocina = DetalleVenta.objects.filter(
+        venta__es_comanda=True,
+        producto__categoria='RESTAURANTE',
+    ).exclude(
+        producto__subcategoria__in=SUBCATEGORIAS_BEBIDAS
+    ).exclude(
+        estado_comanda__estado='LISTO'
+    ).select_related('venta', 'venta__mesa', 'producto', 'mozo', 'estado_comanda').order_by('venta__mesa__numero', 'id')
+
+    # Agrupar por mesa/comanda
+    pedidos_por_mesa = {}
+    for detalle in detalles_cocina:
+        mesa_key = f"Mesa {detalle.venta.mesa.numero}" if detalle.venta.mesa else "Sin Mesa"
+        if mesa_key not in pedidos_por_mesa:
+            pedidos_por_mesa[mesa_key] = {
+                'mesa': detalle.venta.mesa,
+                'venta_id': detalle.venta.id,
+                'items': []
+            }
+        try:
+            estado = detalle.estado_comanda.estado
+        except:
+            estado = 'PENDIENTE'
+            EstadoComanda.objects.get_or_create(detalle=detalle)
+        pedidos_por_mesa[mesa_key]['items'].append({
+            'detalle': detalle,
+            'estado': estado,
+            'mozo_nombre': detalle.mozo.get_full_name() or detalle.mozo.username if detalle.mozo else 'Mozo',
+        })
+
+    return render(request, 'gestion/cocina_panel.html', {
+        'pedidos_por_mesa': pedidos_por_mesa,
+        'titulo': 'Panel de Cocina',
+    })
+
+
+@login_required
+def barra_view(request):
+    """Panel exclusivo para el usuario de Barra. Solo ve bebidas y licores."""
+    detalles_barra = DetalleVenta.objects.filter(
+        venta__es_comanda=True,
+        producto__subcategoria__in=SUBCATEGORIAS_BEBIDAS,
+        producto__categoria='RESTAURANTE',
+    ).exclude(
+        estado_comanda__estado='LISTO'
+    ).select_related('venta', 'venta__mesa', 'producto', 'mozo', 'estado_comanda').order_by('venta__mesa__numero', 'id')
+
+    pedidos_por_mesa = {}
+    for detalle in detalles_barra:
+        mesa_key = f"Mesa {detalle.venta.mesa.numero}" if detalle.venta.mesa else "Sin Mesa"
+        if mesa_key not in pedidos_por_mesa:
+            pedidos_por_mesa[mesa_key] = {
+                'mesa': detalle.venta.mesa,
+                'venta_id': detalle.venta.id,
+                'items': []
+            }
+        try:
+            estado = detalle.estado_comanda.estado
+        except:
+            estado = 'PENDIENTE'
+            EstadoComanda.objects.get_or_create(detalle=detalle)
+        pedidos_por_mesa[mesa_key]['items'].append({
+            'detalle': detalle,
+            'estado': estado,
+            'mozo_nombre': detalle.mozo.get_full_name() or detalle.mozo.username if detalle.mozo else 'Mozo',
+        })
+
+    return render(request, 'gestion/barra_panel.html', {
+        'pedidos_por_mesa': pedidos_por_mesa,
+        'titulo': 'Panel de Barra',
+    })
+
+
+@login_required
+def actualizar_estado_comanda(request, detalle_id):
+    """Actualiza el estado de un ítem de comanda (cocina o barra). Vía POST."""
+    if request.method == 'POST':
+        detalle = get_object_or_404(DetalleVenta, id=detalle_id)
+        nuevo_estado = request.POST.get('estado')
+        estados_validos = ['PENDIENTE', 'ACEPTADO', 'EN_PREPARACION', 'LISTO']
+        if nuevo_estado in estados_validos:
+            comanda, _ = EstadoComanda.objects.get_or_create(detalle=detalle)
+            comanda.estado = nuevo_estado
+            comanda.actualizado_por = request.user
+            comanda.save()
+        # Devolver a la vista correcta según el rol
+        try:
+            rol = request.user.perfil.rol
+        except:
+            rol = 'ADMIN'
+        if rol == 'BARRA':
+            return redirect('barra')
+        return redirect('cocina')
+    return redirect('cocina')
+
+
+@login_required
+def limpieza_view(request):
+    """Panel exclusivo para el usuario de Limpieza. Ve habitaciones en estado LIMPIEZA."""
+    try:
+        rol = request.user.perfil.rol
+    except:
+        rol = 'ADMIN'
+        
+    habitaciones_limpieza = Habitacion.objects.filter(
+        estado='LIMPIEZA', activo=True
+    ).order_by('numero')
+
+    if rol == 'LIMPIEZA':
+        habitaciones_limpieza = habitaciones_limpieza.filter(personal_limpieza=request.user)
+
+    return render(request, 'gestion/limpieza_panel.html', {
+        'habitaciones': habitaciones_limpieza,
+        'titulo': 'Panel de Limpieza',
+    })
+
+
+@login_required
+def actualizar_estado_limpieza(request, hab_id):
+    """Cambia el estado de una habitación desde el panel de limpieza."""
+    if request.method == 'POST':
+        habitacion = get_object_or_404(Habitacion, id=hab_id)
+        nuevo_subestado = request.POST.get('subestado')
+        
+        if nuevo_subestado in ['RECIBIDO', 'LIMPIANDO']:
+            habitacion.subestado_limpieza = nuevo_subestado
+            habitacion.save()
+            messages.info(request, f"Habitación #{habitacion.numero} marcada en estado: {habitacion.get_subestado_limpieza_display()}.")
+        elif nuevo_subestado == 'TERMINADO':
+            habitacion.estado = 'DISPONIBLE'
+            habitacion.subestado_limpieza = 'PENDIENTE'
+            habitacion.personal_limpieza = None
+            habitacion.save()
+            messages.success(request, f"Habitación #{habitacion.numero} finalizada y marcada como Disponible.")
+    return redirect('limpieza')
+
+
+@login_required
+def habitacion_liberar(request, hab_id):
+    """El admin libera una habitación para limpieza."""
+    habitacion = get_object_or_404(Habitacion, id=hab_id)
+    habitacion.estado = 'LIMPIEZA'
+    if request.method == 'POST':
+        personal_id = request.POST.get('personal_limpieza')
+        if personal_id:
+            from django.contrib.auth.models import User
+            personal = get_object_or_404(User, id=personal_id)
+            habitacion.personal_limpieza = personal
+        else:
+            habitacion.personal_limpieza = None
+    habitacion.subestado_limpieza = 'PENDIENTE'
+    habitacion.save()
+    messages.success(request, f"Habitación #{habitacion.numero} asignada/liberada para limpieza.")
+    return redirect('habitaciones_list')
+
+
+@login_required
+def habitacion_detalle_cliente(request, reserva_id):
+    """Retorna los datos del cliente de una reserva activa (para modal)."""
+    reserva = get_object_or_404(Reserva, id=reserva_id)
+    pedidos = reserva.pedidos.all().order_by('-fecha_pedido')
+    total_pedidos = pedidos.aggregate(Sum('subtotal'))['subtotal__sum'] or 0
+    total_final = reserva.total_hospedaje + total_pedidos - reserva.adelanto
+    return render(request, 'gestion/habitacion_cliente_modal.html', {
+        'reserva': reserva,
+        'pedidos': pedidos,
+        'total_pedidos': total_pedidos,
+        'total_final': total_final,
+    })
+

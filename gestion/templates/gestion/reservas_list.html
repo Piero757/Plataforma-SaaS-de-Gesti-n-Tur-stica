@@ -24,6 +24,41 @@
     </div>
 </div>
 
+<!-- Tarjeta de Filtros de Recepción -->
+<div class="card mb-4 border-0 shadow-sm">
+    <div class="card-body p-3">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-md-5">
+                <label class="form-label small fw-bold text-muted">Búsqueda rápida</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-light text-muted border-end-0">
+                        <i data-lucide="search" style="width: 16px; height: 16px;"></i>
+                    </span>
+                    <input type="text" name="q" class="form-control bg-light border-start-0 ps-0" placeholder="Buscar por cliente, habitación, placa de vehículo..." value="{{ query|default:'' }}">
+                </div>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small fw-bold text-muted">Estado</label>
+                <select name="estado" class="form-select bg-light">
+                    <option value="">Todos los estados</option>
+                    <option value="CHECKIN" {% if estado_filtro == 'CHECKIN' %}selected{% endif %}>En Hospedaje</option>
+                    <option value="CHECKOUT" {% if estado_filtro == 'CHECKOUT' %}selected{% endif %}>Finalizada (Checkout)</option>
+                    <option value="PENDIENTE" {% if estado_filtro == 'PENDIENTE' %}selected{% endif %}>Pendiente</option>
+                    <option value="CANCELADA" {% if estado_filtro == 'CANCELADA' %}selected{% endif %}>Cancelada</option>
+                </select>
+            </div>
+            <div class="col-md-4 d-flex gap-2">
+                <button type="submit" class="btn btn-primary flex-grow-1 d-flex align-items-center justify-content-center gap-2">
+                    <i data-lucide="filter" style="width: 16px; height: 16px;"></i> Filtrar
+                </button>
+                <a href="?{% if es_historial %}es_historial=True{% endif %}" class="btn btn-light" title="Limpiar Filtros">
+                    <i data-lucide="x" style="width: 16px; height: 16px;"></i> Limpiar
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div class="card border-0 shadow-sm">
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
@@ -31,6 +66,7 @@
                 <tr>
                     <th class="ps-4">Habitación</th>
                     <th>Cliente</th>
+                    <th>Detalles PAX / Desay. / Placa</th>
                     <th>Ingreso / Salida</th>
                     <th>Estado</th>
                     <th>Monto Est.</th>
@@ -46,14 +82,42 @@
                     </td>
                     <td>
                         <div class="fw-bold">{{ res.cliente.nombre_razon_social }}</div>
-                        <small class="text-muted">{{ res.cliente.numero_documento }}</small>
+                        <small class="text-muted">
+                            {% if "TEMP-" in res.cliente.numero_documento %}
+                                <span class="badge bg-light-secondary text-secondary" style="font-size: 0.7rem;">Registro Rápido</span>
+                            {% else %}
+                                {{ res.cliente.numero_documento }}
+                            {% endif %}
+                        </small>
+                    </td>
+                    <td>
+                        <div class="d-flex flex-column gap-1" style="max-width: 200px;">
+                            <span class="badge bg-light text-dark text-start" style="font-size: 0.75rem;">
+                                <i data-lucide="users" class="text-primary me-1" style="width: 12px; height: 12px; display: inline-block; vertical-align: middle;"></i> Pax: <strong>{{ res.n_pax }}</strong>
+                            </span>
+                            {% if res.hora_desayuno %}
+                            <span class="badge bg-light text-dark text-start" style="font-size: 0.75rem;">
+                                <i data-lucide="coffee" class="text-warning me-1" style="width: 12px; height: 12px; display: inline-block; vertical-align: middle;"></i> Desayuno: <strong>{{ res.hora_desayuno }}</strong>
+                            </span>
+                            {% endif %}
+                            {% if res.placa_vehiculo %}
+                            <span class="badge bg-light text-dark text-start" style="font-size: 0.75rem;">
+                                <i data-lucide="car" class="text-success me-1" style="width: 12px; height: 12px; display: inline-block; vertical-align: middle;"></i> Placa: <strong>{{ res.placa_vehiculo }}</strong>
+                            </span>
+                            {% endif %}
+                            {% if res.condicion_pago %}
+                            <span class="badge bg-light text-dark text-start" style="font-size: 0.75rem;">
+                                <i data-lucide="dollar-sign" class="text-info me-1" style="width: 12px; height: 12px; display: inline-block; vertical-align: middle;"></i> Condición: <strong>{{ res.condicion_pago }}</strong>
+                            </span>
+                            {% endif %}
+                        </div>
                     </td>
                     <td>
                         <div><i data-lucide="arrow-right" class="text-success" style="width: 14px;"></i> {{ res.fecha_ingreso|date:"d/m H:i" }}</div>
                         <div><i data-lucide="arrow-left" class="text-danger" style="width: 14px;"></i> {{ res.fecha_salida|date:"d/m H:i" }}</div>
                     </td>
                     <td>
-                        <span class="badge {% if res.estado == 'CHECKIN' %}bg-light-primary{% elif res.estado == 'CHECKOUT' %}bg-light-success{% else %}bg-light-warning{% endif %}">
+                        <span class="badge {% if res.estado == 'CHECKIN' %}bg-light-primary{% elif res.estado == 'CHECKOUT' %}bg-light-success{% elif res.estado == 'CANCELADA' %}bg-light-danger{% else %}bg-light-warning{% endif %}">
                             {{ res.get_estado_display }}
                         </span>
                     </td>
@@ -73,7 +137,11 @@
                             <a href="{% url 'reserva_detalle' res.id %}" class="btn btn-sm btn-outline-secondary" title="Ver Detalle">
                                 <i data-lucide="eye"></i> Detalle
                             </a>
-                            {% if res.estado == 'CHECKIN' or res.estado == 'PENDIENTE' %}
+                            {% if res.estado == 'PENDIENTE' %}
+                            <a href="{% url 'reserva_hacer_checkin' res.id %}" class="btn btn-sm btn-primary d-flex align-items-center gap-1" title="Confirmar Check-in">
+                                <i data-lucide="key" style="width: 14px;"></i> Check-in
+                            </a>
+                            {% elif res.estado == 'CHECKIN' %}
                             <a href="{% url 'pedido_habitacion_create' res.id %}" class="btn btn-sm btn-outline-primary" title="Agregar Pedido">
                                 <i data-lucide="plus-circle"></i> Pedido
                             </a>

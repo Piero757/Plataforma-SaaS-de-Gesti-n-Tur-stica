@@ -1,0 +1,225 @@
+{% extends 'base.html' %}
+
+{% block title %}Panel de Limpieza - TurismoERP{% endblock %}
+
+{% block extra_css %}
+<style>
+    .clean-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 1.5rem;
+    }
+    .room-card {
+        border-radius: 16px;
+        border: 2px solid rgba(0, 0, 0, 0.06);
+        background: #fff;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.04);
+        transition: transform 0.2s, box-shadow 0.2s;
+        overflow: hidden;
+    }
+    .room-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 16px 40px rgba(0,0,0,0.08);
+    }
+    .room-header {
+        padding: 1rem 1.25rem;
+        color: white;
+    }
+    .header-pendiente  { background: linear-gradient(135deg, #dc3545 0%, #b02a37 100%); }
+    .header-recibido   { background: linear-gradient(135deg, #0dcaf0 0%, #0aa2c0 100%); }
+    .header-limpiando  { background: linear-gradient(135deg, #ffc107 0%, #cc9a00 100%); }
+    .header-terminado  { background: linear-gradient(135deg, #50cd89 0%, #3dad71 100%); }
+
+    .estado-icon {
+        font-size: 2.5rem;
+        line-height: 1;
+        margin-bottom: 0.25rem;
+    }
+    .action-btn {
+        border-radius: 10px;
+        font-weight: 700;
+        font-size: 0.9rem;
+        padding: 0.65rem 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        transition: all 0.2s;
+        width: 100%;
+    }
+    .action-btn:hover { transform: scale(1.02); }
+
+    .countdown-bar {
+        background: rgba(255,255,255,0.3);
+        border-radius: 4px;
+        height: 4px;
+        margin-top: 8px;
+        overflow: hidden;
+    }
+    .countdown-bar-inner {
+        height: 100%;
+        background: rgba(255,255,255,0.8);
+        animation: countdown 30s linear forwards;
+    }
+    @keyframes countdown {
+        from { width: 100%; }
+        to { width: 0%; }
+    }
+    .empty-state {
+        background: linear-gradient(135deg, #d4edda 0%, #fff 100%);
+        border: 2px dashed #a3d9a5;
+        border-radius: 20px;
+        padding: 4rem 2rem;
+        text-align: center;
+    }
+    .tipo-badge {
+        font-size: 0.72rem;
+        font-weight: 700;
+        padding: 0.25rem 0.6rem;
+        border-radius: 50px;
+        background: rgba(255,255,255,0.25);
+        color: white;
+    }
+    .room-body-info {
+        font-size: 0.82rem;
+        color: #6c757d;
+        line-height: 1.5;
+    }
+</style>
+<meta http-equiv="refresh" content="30">
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+    <div>
+        <h2 class="fw-bold mb-0">🧹 Panel de Limpieza</h2>
+        <p class="text-muted mb-0 small">Habitaciones asignadas para limpieza. Se actualiza automáticamente cada 30 segundos.</p>
+    </div>
+    <div class="d-flex align-items-center gap-3">
+        <div class="d-flex align-items-center gap-2 px-3 py-2 rounded-3" style="background:#c9f7f5; border:1px solid #a3e8e5;">
+            <span class="spinner-grow spinner-grow-sm text-success" role="status" style="width:8px;height:8px;"></span>
+            <small class="fw-semibold text-success">Auto-refresh: 30s</small>
+        </div>
+        <button onclick="window.location.reload();" class="btn btn-light d-flex align-items-center gap-2">
+            <i data-lucide="refresh-cw" style="width: 16px;"></i> Actualizar
+        </button>
+    </div>
+</div>
+
+{% if habitaciones %}
+<!-- Summary counts -->
+<div class="row g-3 mb-4">
+    <div class="col-auto">
+        <div class="px-4 py-2 rounded-3 d-flex align-items-center gap-2 fw-bold" style="background:#c9f7f5; border:1px solid #a3e8e5; color:#1a7a6e;">
+            <i data-lucide="bed" style="width:16px;height:16px;"></i>
+            {{ habitaciones|length }} habitación{{ habitaciones|length|pluralize:"es" }} asignada{{ habitaciones|length|pluralize:"s" }}
+        </div>
+    </div>
+</div>
+
+<div class="clean-grid">
+    {% for hab in habitaciones %}
+    <div class="card room-card">
+        <!-- Colored header based on cleaning status -->
+        <div class="room-header
+            {% if hab.subestado_limpieza == 'PENDIENTE' %}header-pendiente
+            {% elif hab.subestado_limpieza == 'RECIBIDO' %}header-recibido
+            {% elif hab.subestado_limpieza == 'LIMPIANDO' %}header-limpiando
+            {% else %}header-terminado{% endif %}">
+
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="estado-icon">
+                        {% if hab.subestado_limpieza == 'PENDIENTE' %}🔴
+                        {% elif hab.subestado_limpieza == 'RECIBIDO' %}🔵
+                        {% elif hab.subestado_limpieza == 'LIMPIANDO' %}🟡
+                        {% else %}✅{% endif %}
+                    </div>
+                    <h4 class="fw-bold mb-0" style="color:white;">Habitación #{{ hab.numero }}</h4>
+                    <small style="color:rgba(255,255,255,0.85);">{{ hab.get_subestado_limpieza_display }}</small>
+                </div>
+                <span class="tipo-badge">{{ hab.get_tipo_display }}</span>
+            </div>
+            <div class="countdown-bar mt-2">
+                <div class="countdown-bar-inner"></div>
+            </div>
+        </div>
+
+        <div class="card-body p-4">
+            {% if hab.descripcion %}
+            <p class="room-body-info mb-3">
+                <i data-lucide="info" style="width:13px;height:13px;" class="me-1 text-muted"></i>
+                {{ hab.descripcion|truncatechars:100 }}
+            </p>
+            {% else %}
+            <p class="room-body-info text-muted mb-3">Sin observaciones adicionales para esta habitación.</p>
+            {% endif %}
+
+            <!-- Status steps visual -->
+            <div class="d-flex justify-content-between align-items-center mb-3 px-1">
+                <div class="text-center" style="flex:1;">
+                    <div class="rounded-circle mx-auto mb-1 d-flex align-items-center justify-content-center"
+                         style="width:28px;height:28px;background:{% if hab.subestado_limpieza != 'PENDIENTE' %}#50cd89{% else %}#dee2e6{% endif %};color:white;font-size:0.75rem;font-weight:700;">
+                        {% if hab.subestado_limpieza != 'PENDIENTE' %}✓{% else %}1{% endif %}
+                    </div>
+                    <div style="font-size:0.65rem; color:#6c757d; font-weight:600;">Recibido</div>
+                </div>
+                <div style="flex:1; height:2px; background:#dee2e6; position:relative; top:-10px;">
+                    <div style="height:100%; background:#50cd89; width:{% if hab.subestado_limpieza == 'LIMPIANDO' or hab.subestado_limpieza == 'TERMINADO' %}100{% else %}0{% endif %}%;"></div>
+                </div>
+                <div class="text-center" style="flex:1;">
+                    <div class="rounded-circle mx-auto mb-1 d-flex align-items-center justify-content-center"
+                         style="width:28px;height:28px;background:{% if hab.subestado_limpieza == 'LIMPIANDO' or hab.subestado_limpieza == 'TERMINADO' %}#ffc107{% else %}#dee2e6{% endif %};color:{% if hab.subestado_limpieza == 'LIMPIANDO' or hab.subestado_limpieza == 'TERMINADO' %}white{% else %}#6c757d{% endif %};font-size:0.75rem;font-weight:700;">
+                        {% if hab.subestado_limpieza == 'LIMPIANDO' or hab.subestado_limpieza == 'TERMINADO' %}✓{% else %}2{% endif %}
+                    </div>
+                    <div style="font-size:0.65rem; color:#6c757d; font-weight:600;">Limpiando</div>
+                </div>
+                <div style="flex:1; height:2px; background:#dee2e6; position:relative; top:-10px;">
+                    <div style="height:100%; background:#50cd89; width:{% if hab.subestado_limpieza == 'TERMINADO' %}100{% else %}0{% endif %}%;"></div>
+                </div>
+                <div class="text-center" style="flex:1;">
+                    <div class="rounded-circle mx-auto mb-1 d-flex align-items-center justify-content-center"
+                         style="width:28px;height:28px;background:{% if hab.subestado_limpieza == 'TERMINADO' %}#50cd89{% else %}#dee2e6{% endif %};color:{% if hab.subestado_limpieza == 'TERMINADO' %}white{% else %}#6c757d{% endif %};font-size:0.75rem;font-weight:700;">
+                        {% if hab.subestado_limpieza == 'TERMINADO' %}✓{% else %}3{% endif %}
+                    </div>
+                    <div style="font-size:0.65rem; color:#6c757d; font-weight:600;">Terminado</div>
+                </div>
+            </div>
+
+            <!-- Action button -->
+            <form action="{% url 'actualizar_estado_limpieza' hab.id %}" method="post" class="mt-2">
+                {% csrf_token %}
+                {% if hab.subestado_limpieza == 'PENDIENTE' %}
+                <button type="submit" name="subestado" value="RECIBIDO" class="action-btn btn btn-info text-white">
+                    <i data-lucide="check" style="width:16px;height:16px;"></i>
+                    Aceptar / Recibido
+                </button>
+                {% elif hab.subestado_limpieza == 'RECIBIDO' %}
+                <button type="submit" name="subestado" value="LIMPIANDO" class="action-btn btn btn-warning text-dark">
+                    <i data-lucide="sparkles" style="width:16px;height:16px;"></i>
+                    Iniciar Limpieza
+                </button>
+                {% elif hab.subestado_limpieza == 'LIMPIANDO' %}
+                <button type="submit" name="subestado" value="TERMINADO" class="action-btn btn btn-success">
+                    <i data-lucide="check-check" style="width:16px;height:16px;"></i>
+                    ¡Limpieza Terminada!
+                </button>
+                {% else %}
+                <div class="d-flex align-items-center justify-content-center gap-2 p-2 rounded-3" style="background:#d4edda; color:#155724;">
+                    <i data-lucide="check-circle-2" style="width:18px;height:18px;"></i>
+                    <span class="fw-bold">Completado — Marcada como Disponible</span>
+                </div>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <div style="font-size:5rem; line-height:1; margin-bottom:1rem;">✨</div>
+    <h3 class="fw-bold text-success mb-2">¡Todo limpio y ordenado!</h3>
+    <p class="text-muted mb-0">No tienes habitaciones asignadas para limpieza en este momento.<br>El administrador te asignará habitaciones cuando sea necesario.</p>
+</div>
+{% endif %}
+{% endblock %}

@@ -62,13 +62,21 @@
     </style>
 </head>
 <body>
-    <div class="header">
-        <div class="title">Reporte de Ventas Generales - Hotel & Restaurante</div>
-        <div class="subtitle">
-            Generado el {{ fecha|date:"d/m/Y H:i" }}
-            {% if fecha_inicio or fecha_fin %}
-            | Rango: {{ fecha_inicio|default:"Inicio" }} al {{ fecha_fin|default:"Fin" }}
-            {% endif %}
+    <div class="header" style="text-align: left; display: table; width: 100%;">
+        {% if empresa_config.logo %}
+        <div style="display: table-cell; vertical-align: middle; width: 80px; padding-right: 15px;">
+            <img src="{{ empresa_config.logo.path }}" style="width: 80px; max-height: 80px; object-fit: contain;">
+        </div>
+        {% endif %}
+        <div style="display: table-cell; vertical-align: middle;">
+            <div class="title" style="margin: 0; line-height: 1.2;">Reporte de Ventas Generales</div>
+            <div class="subtitle" style="margin: 0; padding-top: 4px;">
+                {% if empresa_config %}{{ empresa_config.nombre_comercial|upper|default:empresa_config.razon_social|upper }}{% else %}TURISMO ERP{% endif %}
+                | Generado el {{ fecha|date:"d/m/Y H:i" }}
+                {% if fecha_inicio or fecha_fin %}
+                | Rango: {{ fecha_inicio|default:"Inicio" }} al {{ fecha_fin|default:"Fin" }}
+                {% endif %}
+            </div>
         </div>
     </div>
 

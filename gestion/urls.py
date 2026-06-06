@@ -86,6 +86,8 @@ urlpatterns = [
     path('habitaciones/eliminar/<int:pk>/', views.habitacion_delete, name='habitacion_delete'),
     path('habitaciones/historial/', views.habitaciones_historial, name='habitaciones_historial'),
     path('habitaciones/restaurar/<int:pk>/', views.habitacion_restore, name='habitacion_restore'),
+    path('habitaciones/liberar/<int:hab_id>/', views.habitacion_liberar, name='habitacion_liberar'),
+    path('habitaciones/cliente/<int:reserva_id>/', views.habitacion_detalle_cliente, name='habitacion_detalle_cliente'),
     path('reservas/', views.reserva_list, name='reserva_list'),
     path('reservas/nuevo/', views.reserva_create, name='reserva_create'),
     path('reservas/pedido/<int:reserva_id>/', views.pedido_habitacion_create, name='pedido_habitacion_create'),
@@ -95,16 +97,26 @@ urlpatterns = [
     path('reservas/eliminar/<int:pk>/', views.reserva_delete, name='reserva_delete'),
     path('reservas/historial/', views.reservas_historial, name='reservas_historial'),
     path('reservas/restaurar/<int:pk>/', views.reserva_restore, name='reserva_restore'),
+    path('reservas/checkin/<int:pk>/', views.reserva_hacer_checkin, name='reserva_hacer_checkin'),
 
     # Restaurante Management
     path('restaurante/mesa/<int:mesa_id>/', views.mesa_detalle, name='mesa_detalle'),
     path('restaurante/mesa/abrir/<int:mesa_id>/', views.mesa_abrir, name='mesa_abrir'),
     path('restaurante/mesa/cerrar/<int:venta_id>/', views.mesa_cerrar, name='mesa_cerrar'),
     path('restaurante/mesa/agregar-item/<int:venta_id>/', views.mesa_agregar_item, name='mesa_agregar_item'),
+    path('restaurante/mesa/guardar-guia/<int:venta_id>/', views.mesa_guardar_guia, name='mesa_guardar_guia'),
+    path('restaurante/jefe-mozos/', views.jefe_mozos_panel, name='jefe_mozos_panel'),
     path('restaurante/mesas/', views.mesas_list, name='mesas_list'),
     path('restaurante/mesas/nuevo/', views.mesa_create, name='mesa_create'),
     path('restaurante/mesas/editar/<int:pk>/', views.mesa_update, name='mesa_update'),
     path('restaurante/mesas/eliminar/<int:pk>/', views.mesa_delete, name='mesa_delete'),
     path('restaurante/carta/', views.carta_lista, name='carta_lista'),
     path('restaurante/ticket/<int:pk>/', views.ticket_print, name='ticket_print'),
+
+    # Roles especiales
+    path('cocina/', views.cocina_view, name='cocina'),
+    path('barra/', views.barra_view, name='barra'),
+    path('limpieza/', views.limpieza_view, name='limpieza'),
+    path('comanda/estado/<int:detalle_id>/', views.actualizar_estado_comanda, name='actualizar_estado_comanda'),
+    path('limpieza/estado/<int:hab_id>/', views.actualizar_estado_limpieza, name='actualizar_estado_limpieza'),
 ]
