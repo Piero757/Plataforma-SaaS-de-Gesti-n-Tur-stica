@@ -132,12 +132,13 @@
             </tr>
             {% endif %}
             
-            {% if total_comisiones > 0 %}
+            {% if total_comisiones > 0 and not silla_filtro %}
             <tr>
                 <td>Costos administrativos:</td>
                 <td class="text-right text-success">S/ {{ total_comisiones|floatformat:2 }}</td>
             </tr>
             {% endif %}
+
 
             <tr>
                 <td class="bold">TOTAL A PAGAR:</td>
