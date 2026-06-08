@@ -28,6 +28,8 @@ from .utils import render_to_pdf
 from django.contrib.auth.models import User
 from django.db.models.functions import TruncMonth
 import json
+from decimal import Decimal
+
 
 # --- DASHBOARD ---
 
