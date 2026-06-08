@@ -413,9 +413,15 @@ def producto_create(request):
         form = ProductoForm(request.POST, request.FILES)
         if form.is_valid():
             producto = form.save(commit=False)
+            if not producto.codigo:
+                import random
+                producto.codigo = f"prod-{random.randint(1000, 9999)}"
+                while Producto.objects.filter(codigo=producto.codigo).exists():
+                    producto.codigo = f"prod-{random.randint(1000, 9999)}"
             if is_restaurante:
                 producto.modulo = 'RESTAURANTE'
                 producto.categoria = 'RESTAURANTE'
+
             
             # CAPTURA MANUAL DE TODOS LOS STOCKS
             stock_actual = int(request.POST.get('stock', 0) or 0)
@@ -2048,13 +2054,21 @@ def mesa_detalle(request, mesa_id):
     comanda = Venta.objects.filter(mesa=mesa, es_comanda=True).last()
     productos = Producto.objects.filter(categoria='RESTAURANTE', activo=True)
     
+    sillas_usadas = []
+    if comanda:
+        sillas_usadas = comanda.detalles.values_list('silla', flat=True).distinct().order_by('silla')
+        # Filter out None values from sillas_usadas
+        sillas_usadas = [s for s in sillas_usadas if s is not None]
+        
     return render(request, 'gestion/mesa_detalle.html', {
         'mesa': mesa,
         'comanda': comanda,
         'productos': productos,
+        'sillas_usadas': sillas_usadas,
         'sillas_range': range(1, mesa.capacidad + 1),
         'titulo': f'Mesa {mesa.numero}'
     })
+
 
 @login_required
 def mesa_agregar_item(request, venta_id):
@@ -2121,28 +2135,91 @@ def mesa_cerrar(request, venta_id):
     if request.method == 'POST':
         tipo = request.POST.get('tipo_comprobante', 'BOLETA')
         pago_tarjeta_checked = request.POST.get('pago_tarjeta') in ['on', 'true']
+        silla_cobro = request.POST.get('silla_cobro') or None
         
-        venta.es_comanda = False
-        venta.tipo_comprobante = tipo
-        venta.pago_tarjeta = pago_tarjeta_checked
-        
-        total_productos = sum(d.subtotal for d in venta.detalles.all())
-        if pago_tarjeta_checked:
-            recargo = total_productos * Decimal('0.05')
-            venta.recargo_tarjeta = recargo
-            venta.total = total_productos + recargo
+        if silla_cobro:
+            # Cobrar solo los ítems de esa silla
+            silla_num = int(silla_cobro)
+            detalles_silla = venta.detalles.filter(silla=silla_num)
+            
+            if not detalles_silla.exists():
+                messages.warning(request, f"No hay pedidos para la silla {silla_num}.")
+                return redirect('mesa_detalle', mesa_id=venta.mesa.id)
+                
+            # Crear una nueva Venta para esta silla
+            nueva_venta = Venta.objects.create(
+                cliente=venta.cliente,
+                usuario=request.user,
+                tipo_comprobante=tipo,
+                serie='COM_S' if tipo == 'TICKET' else ('B001' if tipo == 'BOLETA' else 'F001'),
+                numero=Venta.objects.filter(tipo_comprobante=tipo).count() + 1,
+                total=0,
+                forma_pago='CONTADO',
+                es_comanda=False,
+                pago_tarjeta=pago_tarjeta_checked,
+                modulo='RESTAURANTE',
+                mesa=venta.mesa,
+                encargado_guia=venta.encargado_guia
+            )
+            
+            # Mover detalles a la nueva venta
+            for d in detalles_silla:
+                d.venta = nueva_venta
+                d.save()
+                
+            # Calcular totales de la nueva venta
+            total_productos = sum(d.subtotal for d in nueva_venta.detalles.all())
+            if pago_tarjeta_checked:
+                recargo = total_productos * Decimal('0.05')
+                nueva_venta.recargo_tarjeta = recargo
+                nueva_venta.total = total_productos + recargo
+            else:
+                nueva_venta.recargo_tarjeta = Decimal('0.00')
+                nueva_venta.total = total_productos
+            nueva_venta.save()
+            
+            # Recalcular el total de la comanda original
+            venta.total = sum(d.subtotal for d in venta.detalles.all())
+            venta.save()
+            
+            # Si ya no quedan detalles en la comanda original, cerrarla y liberar mesa
+            if not venta.detalles.exists():
+                venta.es_comanda = False
+                venta.save()
+                if venta.mesa:
+                    venta.mesa.estado = 'DISPONIBLE'
+                    venta.mesa.save()
+                messages.success(request, f"Cuenta de Silla {silla_num} cerrada. Mesa liberada por completo.")
+                return redirect('restaurante')
+            else:
+                messages.success(request, f"Cuenta de Silla {silla_num} cerrada con éxito. La mesa continúa abierta.")
+                return redirect('mesa_detalle', mesa_id=venta.mesa.id)
         else:
-            venta.recargo_tarjeta = Decimal('0.00')
-            venta.total = total_productos
+            # Proceso original (Toda la Mesa)
+            venta.es_comanda = False
+            venta.tipo_comprobante = tipo
+            venta.pago_tarjeta = pago_tarjeta_checked
             
-        venta.save()
-        
-        if venta.mesa:
-            venta.mesa.estado = 'DISPONIBLE'
-            venta.mesa.save()
+            total_productos = sum(d.subtotal for d in venta.detalles.all())
+            if pago_tarjeta_checked:
+                recargo = total_productos * Decimal('0.05')
+                venta.recargo_tarjeta = recargo
+                venta.total = total_productos + recargo
+            else:
+                venta.recargo_tarjeta = Decimal('0.00')
+                venta.total = total_productos
+                
+            venta.save()
             
-        messages.success(request, f"Cuenta de Mesa {venta.mesa.numero} cerrada.")
+            if venta.mesa:
+                venta.mesa.estado = 'DISPONIBLE'
+                venta.mesa.save()
+                
+            messages.success(request, f"Cuenta de Mesa {venta.mesa.numero} cerrada.")
+            return redirect('restaurante')
+            
     return redirect('restaurante')
+
 
 @login_required
 def mesas_list(request):
@@ -2204,14 +2281,37 @@ def ticket_print(request, pk):
     detalles = venta.detalles.all()
     if silla:
         detalles = detalles.filter(silla=silla)
+    
     sillas_usadas = venta.detalles.values_list('silla', flat=True).distinct().order_by('silla')
+    
+    # Calcular subtotal de los detalles (excluyendo incluidos en tour)
+    subtotal_silla = sum(d.subtotal for d in detalles)
+    
+    # Calcular comisión total del guía
+    total_comisiones = sum(d.cantidad * (d.producto.comision or Decimal('0.00')) for d in detalles)
+    
+    # Recargo de tarjeta del 5%
+    pago_tarjeta = venta.pago_tarjeta
+    if pago_tarjeta:
+        recargo_tarjeta_silla = subtotal_silla * Decimal('0.05')
+        total_silla_final = subtotal_silla + recargo_tarjeta_silla
+    else:
+        recargo_tarjeta_silla = Decimal('0.00')
+        total_silla_final = subtotal_silla
+        
     return render(request, 'gestion/ticket_print.html', {
         'venta': venta,
         'config': config,
         'detalles_filtrados': detalles,
         'silla_filtro': silla,
         'sillas_usadas': sillas_usadas,
+        'subtotal_silla': subtotal_silla,
+        'recargo_tarjeta_silla': recargo_tarjeta_silla,
+        'total_silla_final': total_silla_final,
+        'pago_tarjeta': pago_tarjeta,
+        'total_comisiones': total_comisiones,
     })
+
 
 
 @login_required

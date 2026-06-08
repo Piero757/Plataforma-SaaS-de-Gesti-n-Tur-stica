@@ -128,14 +128,22 @@
             <div class="card-footer bg-light p-4">
                 <form action="{% url 'mesa_cerrar' comanda.id %}" method="POST" class="row g-2">
                     {% csrf_token %}
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <select name="tipo_comprobante" class="form-select">
                             <option value="BOLETA">Boleta de Venta</option>
                             <option value="FACTURA">Factura</option>
                             <option value="TICKET">Ticket simple</option>
                         </select>
                     </div>
-                    <div class="col-md-4 d-flex align-items-center gap-2 ps-3">
+                    <div class="col-md-3">
+                        <select name="silla_cobro" class="form-select">
+                            <option value="">🍽 Toda la Mesa</option>
+                            {% for s in sillas_usadas %}
+                                <option value="{{ s }}">🪑 Solo Silla {{ s }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3 d-flex align-items-center gap-2 ps-3">
                         <div class="form-check mb-0">
                             <input type="checkbox" class="form-check-input" name="pago_tarjeta" id="pagoTarjeta">
                             <label class="form-check-label small fw-semibold" for="pagoTarjeta">
@@ -143,12 +151,13 @@
                             </label>
                         </div>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <button type="submit" class="btn btn-primary w-100 d-flex align-items-center justify-content-center gap-2">
                             <i data-lucide="check-circle" style="width: 18px;"></i> Cerrar y Cobrar
                         </button>
                     </div>
                 </form>
+
 
                 <!-- Botones Imprimir Cuenta -->
                 <div class="mt-3 pt-3 border-top">

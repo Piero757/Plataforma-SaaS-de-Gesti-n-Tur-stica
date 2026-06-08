@@ -79,12 +79,20 @@ class ProductoForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields['codigo'].required = False
+        self.fields['precio_compra'].required = False
+        self.fields['precio_corporativo'].required = False
+        self.fields['comision'].required = False
+        self.fields['impuesto'].required = False
+        self.fields['categoria'].required = False
+        
         # Cargar el stock actual si el producto ya existe
         if self.instance and self.instance.pk:
             try:
                 self.fields['stock'].initial = self.instance.inventario.stock_actual
             except:
                 self.fields['stock'].initial = 0
+
                 
         # Cargar subcategorias dinámicas
         from .models import CategoriaPersonalizada

@@ -121,33 +121,39 @@
 
     <div class="total-section">
         <table style="width: 100%;">
-            {% if venta.pago_tarjeta and not silla_filtro %}
+            {% if pago_tarjeta %}
             <tr>
                 <td>Subtotal:</td>
-                <td class="text-right">S/ {{ venta.total|floatformat:2 }}</td>
+                <td class="text-right">S/ {{ subtotal_silla|floatformat:2 }}</td>
             </tr>
             <tr>
                 <td>Recargo Tarjeta (5%):</td>
-                <td class="text-right">S/ {{ venta.recargo_tarjeta|floatformat:2 }}</td>
+                <td class="text-right">S/ {{ recargo_tarjeta_silla|floatformat:2 }}</td>
             </tr>
             {% endif %}
+            
+            {% if total_comisiones > 0 %}
+            <tr>
+                <td>Costos administrativos:</td>
+                <td class="text-right text-success">S/ {{ total_comisiones|floatformat:2 }}</td>
+            </tr>
+            {% endif %}
+
             <tr>
                 <td class="bold">TOTAL A PAGAR:</td>
                 <td class="text-right bold" style="font-size: 1.2em;">
-                    {% if silla_filtro %}
-                    S/ {% with t=0 %}{% for item in detalles_filtrados %}{% if not item.incluido_tour %}{{ item.subtotal|add:t }}{% endif %}{% endfor %}{% endwith %}
-                    {% else %}
-                    S/ {{ venta.total }}
-                    {% endif %}
+                    S/ {{ total_silla_final|floatformat:2 }}
                 </td>
             </tr>
-            {% if venta.pago_tarjeta and not silla_filtro %}
+            
+            {% if pago_tarjeta %}
             <tr>
                 <td colspan="2" style="font-size:9px;color:#555;">* Incluye recargo por pago con tarjeta</td>
             </tr>
             {% endif %}
         </table>
     </div>
+
 
     <div class="footer text-center">
         <p class="bold">{{ config.mensaje_pie_pagina|default:"¡Gracias por su visita!" }}</p>

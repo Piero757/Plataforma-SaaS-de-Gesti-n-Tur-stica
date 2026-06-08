@@ -35,24 +35,46 @@
                 </div>
 
                 <div class="p-4">
+                    {% if form.errors %}
+                    <div class="alert alert-danger mb-3">
+                        <strong class="d-block mb-1">Por favor, corrija los siguientes errores:</strong>
+                        <ul class="mb-0 ps-3">
+                            {% for field, errors in form.errors.items %}
+                                {% for error in errors %}
+                                    <li><strong>{{ field|capfirst }}</strong>: {{ error }}</li>
+                                {% endfor %}
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+
                     <div class="row g-3">
                         <div class="col-12">
                             <label class="form-label fw-bold">Nombre del Plato / Bebida</label>
                             {{ form.nombre }}
                         </div>
                         
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <label class="form-label fw-bold">Categoría</label>
                             {{ form.subcategoria }}
                         </div>
 
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <label class="form-label fw-bold">Precio de Venta (S/)</label>
                             <div class="input-group">
                                 <span class="input-group-text bg-light fw-bold">S/</span>
                                 {{ form.precio_venta }}
                             </div>
                         </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold text-success">Comisión Guía (S/)</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light fw-bold">S/</span>
+                                {{ form.comision }}
+                            </div>
+                        </div>
+
 
                         <div class="col-md-4">
                             <label class="form-label fw-bold text-primary">Stock Actual</label>
