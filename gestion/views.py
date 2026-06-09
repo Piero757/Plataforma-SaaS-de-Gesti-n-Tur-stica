@@ -1038,9 +1038,18 @@ def reportes_view(request):
         comision_dict[mozo_key]['total_comision'] += float(d.producto.comision) * d.cantidad
     comisiones_list = sorted(comision_dict.values(), key=lambda x: x['total_comision'], reverse=True)
     # Ventas incluidas en tour
-    items_incluidos_tour = DetalleVenta.objects.filter(
+    detalles_tour_report = DetalleVenta.objects.filter(
         venta__in=ventas_rest, incluido_tour=True
-    ).count()
+    ).select_related('venta', 'venta__mesa', 'producto').order_by('-venta__fecha')
+    
+    for d in detalles_tour_report:
+        d.costo_real = d.cantidad * (d.producto.precio_venta or Decimal('0.00'))
+        
+    total_costo_real_tour = sum(d.costo_real for d in detalles_tour_report)
+    total_real_obtenido = (total_rest or Decimal('0.00')) + total_costo_real_tour - (total_rest_tarjeta or Decimal('0.00'))
+    items_incluidos_tour = detalles_tour_report.count()
+
+
     # Guías con más comanda
     guias_report = ventas_rest.exclude(encargado_guia=None).exclude(encargado_guia='').values('encargado_guia').annotate(
         total_ventas=Count('id'),
@@ -1048,6 +1057,7 @@ def reportes_view(request):
     ).order_by('-total_monto')[:10]
     
     context = {
+
         # Ventas
         'sales_labels': json.dumps(sales_labels),
         'sales_data': json.dumps(sales_data),
@@ -1080,6 +1090,10 @@ def reportes_view(request):
         'comisiones_list': comisiones_list,
         'items_incluidos_tour': items_incluidos_tour,
         'guias_report': guias_report,
+        'detalles_tour_report': detalles_tour_report,
+        'total_costo_real_tour': total_costo_real_tour,
+        'total_real_obtenido': total_real_obtenido,
+
         
         # Filtros
         'usuarios': User.objects.all(),

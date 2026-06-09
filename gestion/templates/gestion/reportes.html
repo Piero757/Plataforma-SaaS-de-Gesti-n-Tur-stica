@@ -513,6 +513,93 @@
         </div>
         {% endif %}
 
+        <!-- TABLA NUEVA 1: Platos Incluidos en el Tour (Valorizado) -->
+        <div class="card border-0 shadow-sm p-4 mb-4">
+            <h5 class="fw-bold mb-3 d-flex align-items-center gap-2 text-success">
+                <i data-lucide="package-check" style="width:18px;"></i> Platos Incluidos en el Tour (Valorizado)
+            </h5>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle small">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Mesa</th>
+                            <th>Plato / Bebida</th>
+                            <th class="text-center">Cant.</th>
+                            <th class="text-end">Costo Real Unit.</th>
+                            <th class="text-end">Costo Real Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in detalles_tour_report %}
+                        <tr>
+                            <td>{{ item.venta.fecha|date:"d/m/Y H:i" }}</td>
+                            <td>{% if item.venta.mesa %}Mesa {{ item.venta.mesa.numero }}{% else %}—{% endif %}</td>
+                            <td class="fw-semibold">{{ item.producto.nombre }}</td>
+                            <td class="text-center">{{ item.cantidad }}</td>
+                            <td class="text-end text-muted">S/ {{ item.producto.precio_venta|floatformat:2 }}</td>
+                            <td class="text-end text-success fw-bold">S/ {{ item.costo_real|floatformat:2 }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="6" class="text-center text-muted py-3">No hay platos incluidos en tour registrados en este período.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="table-light fw-bold border-top border-2 border-dark">
+                        <tr>
+                            <td colspan="5" class="text-end">TOTAL VALORIZADO TOURS:</td>
+                            <td class="text-end text-success fs-6">S/ {{ total_costo_real_tour|floatformat:2 }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+        <!-- TABLA NUEVA 2: Resumen de Conciliación e Ingresos Reales -->
+        <div class="card border-0 shadow-sm p-4 mb-4">
+            <h5 class="fw-bold mb-3 d-flex align-items-center gap-2 text-primary">
+                <i data-lucide="calculator" style="width:18px;"></i> Resumen de Conciliación e Ingresos Reales
+            </h5>
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Concepto</th>
+                            <th class="text-end" style="width:250px;">Monto</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>
+                                <div class="fw-bold">Ventas Registradas en Caja</div>
+                                <small class="text-muted">Total facturado en boletas, facturas y tickets (tours valorizados en S/ 0.00)</small>
+                            </td>
+                            <td class="text-end fw-semibold text-dark fs-6">S/ {{ total_rest|floatformat:2 }}</td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div class="fw-bold text-success">(+) Valor Real de Platos en Tours</div>
+                                <small class="text-muted">Equivalente al costo real de los platos consumidos y marcados como "Incluido en Tour"</small>
+                            </td>
+                            <td class="text-end fw-semibold text-success fs-6">+ S/ {{ total_costo_real_tour|floatformat:2 }}</td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <div class="fw-bold text-danger">(-) Comisiones de Tarjeta (5%)</div>
+                                <small class="text-muted">Suma de los recargos cobrados por pagos con tarjeta</small>
+                            </td>
+                            <td class="text-end fw-semibold text-danger fs-6">- S/ {{ total_rest_tarjeta|floatformat:2 }}</td>
+                        </tr>
+                    </tbody>
+                    <tfoot class="table-light fw-bold border-top border-2 border-dark">
+                        <tr>
+                            <td class="fs-6 text-primary">INGRESOS REALES OBTENIDOS POR RESTAURANTE:</td>
+                            <td class="text-end text-primary fs-5">S/ {{ total_real_obtenido|floatformat:2 }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
         <!-- Historial ventas restaurante -->
         <div class="card border-0 shadow-sm p-4">
             <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">

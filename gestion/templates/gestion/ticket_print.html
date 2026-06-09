@@ -79,7 +79,10 @@
         {% if venta.encargado_guia %}
         <p style="margin: 2px 0;"><strong>GUÍA:</strong> {{ venta.encargado_guia }}</p>
         {% endif %}
+        {% if venta.cliente.numero_documento != '00000000' and venta.cliente.nombre_razon_social != 'Público General' and 'luis' not in venta.cliente.nombre_razon_social|lower and 'enrrique' not in venta.cliente.nombre_razon_social|lower %}
         <p style="margin: 2px 0;"><strong>CLIENTE:</strong> {{ venta.cliente.nombre_razon_social|truncatechars:25 }}</p>
+        {% endif %}
+
     </div>
 
     <div class="divider"></div>
