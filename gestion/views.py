@@ -667,19 +667,25 @@ def importar_ventas(request):
             idx_serie = -1
             idx_numero = -1
             idx_total = -1
+            idx_condicion = -1   # condicion_vendedor → forma_pago
+            idx_estado = -1      # estado → estado_sunat
 
             for i, h in enumerate(headers):
-                if 'fecha' in h or 'emision' in h: idx_fecha = i
-                elif 'cliente' in h or 'nombre' in h or 'razon' in h or 'razonsocia' in h: idx_cliente = i
-                elif 'ruc' in h or 'dni' in h or 'documento' in h or 'numerodo' in h: idx_doc = i
-                elif 'tipo' in h or 'comprobante' in h or 'tipodocu' in h: idx_tipo = i
-                elif 'serie' in h: idx_serie = i
-                elif 'numero' in h or 'correlativo' in h or 'nro_efact' in h: idx_numero = i
-                elif 'total' in h or 'monto' in h or 'importe' in h or 'precioven' in h: idx_total = i
+                if h == 'fecha' or 'emision' in h: idx_fecha = i
+                elif h in ('razonsocial', 'razon_social') or 'nombre' in h or 'cliente' in h: idx_cliente = i
+                elif h in ('numerodoc', 'nro_doc', 'ruc', 'dni') or 'numerodo' in h: idx_doc = i
+                elif h in ('tipodoc', 'desc_tipodoc') or (h == 'tipodoc'): idx_tipo = i
+                elif h == 'serie': idx_serie = i
+                elif h in ('nro_efact', 'numero', 'correlativo') or ('numero' in h and 'doc' not in h): idx_numero = i
+                elif h in ('preciovent', 'total', 'monto', 'importe') or 'precioven' in h: idx_total = i
+                elif 'condicion' in h: idx_condicion = i
+                elif h == 'estado': idx_estado = i
 
             if idx_total == -1 or (idx_cliente == -1 and idx_doc == -1):
                 messages.error(request, "No se pudieron identificar las columnas necesarias en el archivo.")
                 return redirect('ventas_list')
+
+            modulo_actual = request.session.get('modulo', 'HOTEL')
 
             for row in rows:
                 if not any(row): continue
@@ -698,7 +704,6 @@ def importar_ventas(request):
                     elif isinstance(fecha_val, str):
                         for fmt in ('%Y-%m-%d', '%d/%m/%Y', '%d-%m-%Y', '%Y-%m-%d %H:%M:%S', '%d/%m/%Y %H:%M'):
                             try:
-                                # handle double backslashes or other characters
                                 fecha_val_clean = fecha_val.split(' ')[0] if ' ' in fecha_val else fecha_val
                                 fecha = datetime.strptime(fecha_val_clean, fmt)
                                 break
@@ -706,27 +711,28 @@ def importar_ventas(request):
                         else: fecha = timezone.now()
                     else: fecha = timezone.now()
 
-                    monto_total = float(row[idx_total])
-                    nombre_cliente = str(row[idx_cliente]) if idx_cliente != -1 else "Cliente Importado"
-                    doc_cliente = str(row[idx_doc]) if idx_doc != -1 else "00000000"
+                    monto_total = float(row[idx_total]) if row[idx_total] not in ('', None) else 0.0
+                    nombre_cliente = str(row[idx_cliente]).strip() if idx_cliente != -1 and row[idx_cliente] not in ('', None) else "Cliente Importado"
+                    doc_cliente = str(row[idx_doc]).strip() if idx_doc != -1 and row[idx_doc] not in ('', None) else "00000000"
                     
-                    # Limpiar notación científica en DNI/RUC
+                    # Limpiar notación científica en DNI/RUC (ej: 2.05E+10)
                     if 'e+' in doc_cliente.lower() or 'e-' in doc_cliente.lower():
                         try:
                             doc_cliente = str(int(float(doc_cliente)))
                         except:
                             pass
-                    
-                    tipo_raw = str(row[idx_tipo]).upper() if idx_tipo != -1 else "BOLETA"
+
+                    tipo_raw = str(row[idx_tipo]).upper().strip() if idx_tipo != -1 and row[idx_tipo] not in ('', None) else "BOLETA"
                     if 'FACTURA' in tipo_raw: tipo_comp = 'FACTURA'
                     elif 'NOTA' in tipo_raw and 'CREDITO' in tipo_raw: tipo_comp = 'NOTA_CREDITO'
+                    elif 'BOLETA' in tipo_raw: tipo_comp = 'BOLETA'
                     else: tipo_comp = 'BOLETA'
                     
-                    serie = str(row[idx_serie]) if idx_serie != -1 else "E001"
-                    numero_val = str(row[idx_numero]) if idx_numero != -1 else "1"
+                    serie = str(row[idx_serie]).strip() if idx_serie != -1 and row[idx_serie] not in ('', None) else "E001"
+                    numero_val = str(row[idx_numero]).strip() if idx_numero != -1 and row[idx_numero] not in ('', None) else "1"
                     
                     # Limpiar número de factura si contiene serie
-                    if idx_serie != -1:
+                    if idx_serie != -1 and row[idx_serie] not in ('', None):
                         serie_str = str(row[idx_serie]).strip()
                         if numero_val.startswith(serie_str):
                             numero_val = numero_val[len(serie_str):]
@@ -734,6 +740,23 @@ def importar_ventas(request):
                     nro_digits = ''.join(c for c in numero_val if c.isdigit())
                     try: numero = int(nro_digits)
                     except: numero = 1
+
+                    # Forma de pago desde condicion_vendedor
+                    if idx_condicion != -1 and row[idx_condicion] not in ('', None):
+                        cond_raw = str(row[idx_condicion]).upper().strip()
+                        forma_pago = 'CREDITO' if 'CREDIT' in cond_raw else 'CONTADO'
+                    else:
+                        forma_pago = 'CONTADO'
+
+                    # Estado SUNAT desde columna estado
+                    if idx_estado != -1 and row[idx_estado] not in ('', None):
+                        est_raw = str(row[idx_estado]).upper().strip()
+                        if 'ACEPT' in est_raw: estado_sunat_val = 'ACEPTADO'
+                        elif 'RECHAZ' in est_raw: estado_sunat_val = 'RECHAZADO'
+                        elif 'ERROR' in est_raw: estado_sunat_val = 'ERROR'
+                        else: estado_sunat_val = 'PENDIENTE'
+                    else:
+                        estado_sunat_val = 'PENDIENTE'
 
                     cliente, _ = Cliente.objects.get_or_create(
                         numero_documento=doc_cliente,
@@ -746,13 +769,13 @@ def importar_ventas(request):
                     Venta.objects.create(
                         cliente=cliente,
                         usuario=request.user,
-                        fecha=fecha,
                         tipo_comprobante=tipo_comp,
                         serie=serie,
                         numero=numero,
                         total=monto_total,
-                        forma_pago='CONTADO',
-                        estado_sunat='ACEPTADO'
+                        forma_pago=forma_pago,
+                        estado_sunat=estado_sunat_val,
+                        modulo=modulo_actual,
                     )
                     ventas_creadas += 1
                 except Exception as e:
