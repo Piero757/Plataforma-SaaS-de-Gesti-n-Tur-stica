@@ -617,13 +617,42 @@ def importar_ventas(request):
                 rows = ws.iter_rows(min_row=2, values_only=True)
             elif archivo.name.endswith('.xls'):
                 import xlrd
-                wb = xlrd.open_workbook(file_contents=archivo.read())
-                sheet = wb.sheet_by_index(0)
-                headers = [str(sheet.cell_value(0, col)).lower().strip() for col in range(sheet.ncols)]
-                rows = []
-                for row_idx in range(1, sheet.nrows):
-                    row_vals = [sheet.cell_value(row_idx, col_idx) for col_idx in range(sheet.ncols)]
-                    rows.append(row_vals)
+                file_bytes = archivo.read()
+                try:
+                    wb = xlrd.open_workbook(file_contents=file_bytes)
+                    sheet = wb.sheet_by_index(0)
+                    headers = [str(sheet.cell_value(0, col)).lower().strip() for col in range(sheet.ncols)]
+                    rows = []
+                    for row_idx in range(1, sheet.nrows):
+                        row_vals = [sheet.cell_value(row_idx, col_idx) for col_idx in range(sheet.ncols)]
+                        rows.append(row_vals)
+                except Exception as e_xls:
+                    # Si falla, puede que sea un archivo HTML/XML guardado como .xls (común en reportes de SUNAT)
+                    if b'<html' in file_bytes.lower() or b'<table' in file_bytes.lower() or b'<?xml' in file_bytes.lower():
+                        from bs4 import BeautifulSoup
+                        soup = BeautifulSoup(file_bytes, 'html.parser')
+                        table = soup.find('table')
+                        if table:
+                            tr_list = table.find_all('tr')
+                            if tr_list:
+                                th_list = tr_list[0].find_all(['th', 'td'])
+                                headers = [cell.get_text().lower().strip() for cell in th_list]
+                                rows = []
+                                for tr in tr_list[1:]:
+                                    td_list = tr.find_all(['td', 'th'])
+                                    if not td_list:
+                                        continue
+                                    row_vals = [cell.get_text().strip() for cell in td_list]
+                                    if len(row_vals) < len(headers):
+                                        row_vals += [""] * (len(headers) - len(row_vals))
+                                    rows.append(row_vals)
+                            else:
+                                raise ValueError("No se encontraron filas en la tabla HTML.")
+                        else:
+                            raise ValueError("No se encontró una estructura de tabla HTML.")
+                    else:
+                        raise e_xls
+
             else:
                 decoded_file = archivo.read().decode('utf-8').splitlines()
                 reader = csv.reader(decoded_file)
